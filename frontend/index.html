@@ -1,0 +1,195 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Jira Flow Analytics UI</title>
+    <link rel="stylesheet" href="./styles.css" />
+  </head>
+  <body>
+    <div class="app-shell">
+      <aside class="sidebar">
+        <div class="brand">
+          <div class="brand-mark">JFA</div>
+          <div>
+            <p class="eyebrow">Analytics Workspace</p>
+            <h1>Jira Flow Analytics</h1>
+          </div>
+        </div>
+
+        <div class="panel">
+          <h2>Conexao</h2>
+          <label>
+            Fonte
+            <select id="source">
+              <option value="mock">Mock</option>
+              <option value="jira">Jira</option>
+            </select>
+          </label>
+          <label>
+            Data inicial
+            <input id="startDate" type="date" value="2026-01-01" />
+          </label>
+          <label>
+            Data final
+            <input id="endDate" type="date" value="2026-09-01" />
+          </label>
+        </div>
+
+        <div class="panel">
+          <h2>Filtros</h2>
+          <label>
+            Tipo
+            <input id="issueType" type="text" placeholder="Story, Task, Bug..." />
+          </label>
+          <label>
+            Squad
+            <input id="squad" type="text" placeholder="Core, Growth..." />
+          </label>
+          <label>
+            Responsavel
+            <input id="assignee" type="text" placeholder="Joao, Ana..." />
+          </label>
+          <label>
+            Prioridade
+            <input id="priority" type="text" placeholder="High, Medium..." />
+          </label>
+        </div>
+
+        <div class="panel">
+          <h2>Lead Time</h2>
+          <label>
+            Inicio
+            <select id="startMode">
+              <option value="boardColumn">Coluna do board</option>
+              <option value="created">Criacao da issue</option>
+              <option value="fieldDate">Campo de data</option>
+            </select>
+          </label>
+          <label>
+            Board ID
+            <input id="boardId" type="number" value="1" />
+          </label>
+          <label>
+            Coluna inicial
+            <input id="startColumnName" type="text" value="Pronto para Desenvolvimento" />
+          </label>
+          <label>
+            Coluna final
+            <input id="endColumnName" type="text" value="Em Produção" />
+          </label>
+          <label>
+            Campo inicial
+            <input id="startFieldId" type="text" value="customfield_10000" />
+          </label>
+        </div>
+
+        <div class="actions">
+          <button id="refreshButton" class="primary">Atualizar Painel</button>
+        </div>
+      </aside>
+
+      <main class="content">
+        <section class="hero">
+          <div>
+            <p class="eyebrow">Observabilidade de fluxo</p>
+            <h2 id="heroTitle">Throughput em uma consulta visual</h2>
+            <p class="hero-copy" id="heroCopy">
+              Consulte dados reais do Jira ou massa mockada para validar volume entregue por periodo, filtros e tendencias sem depender do board estar cheio.
+            </p>
+          </div>
+          <div class="hero-badge" id="connectionStatus">Aguardando consulta</div>
+        </section>
+
+        <nav class="metric-menu" aria-label="Selecao de metrica">
+          <button class="metric-tab is-active" data-metric-tab="throughput" type="button">Throughput</button>
+          <button class="metric-tab" data-metric-tab="lead-time" type="button">Lead Time</button>
+        </nav>
+
+        <section class="stats-grid metric-view is-active" data-metric-view="throughput">
+          <article class="stat-card stat-card-wide">
+            <span>Throughput total</span>
+            <strong id="throughputTotal">-</strong>
+            <small id="throughputPeriodLabel">Periodo</small>
+          </article>
+          <article class="stat-card">
+            <span>Fonte</span>
+            <strong id="throughputSourceLabel">-</strong>
+            <small>origem da consulta</small>
+          </article>
+          <article class="stat-card">
+            <span>Tipo filtrado</span>
+            <strong id="throughputIssueType">Todos</strong>
+            <small>issue type</small>
+          </article>
+          <article class="stat-card">
+            <span>Squad filtrada</span>
+            <strong id="throughputSquad">Todas</strong>
+            <small>contexto</small>
+          </article>
+        </section>
+
+        <section class="stats-grid metric-view" data-metric-view="lead-time">
+          <article class="stat-card">
+            <span>Lead time medio</span>
+            <strong id="leadTimeAverage">-</strong>
+            <small>dias</small>
+          </article>
+          <article class="stat-card">
+            <span>Lead time mediano</span>
+            <strong id="leadTimeMedian">-</strong>
+            <small>dias</small>
+          </article>
+          <article class="stat-card">
+            <span>Issues analisadas</span>
+            <strong id="leadTimeCount">-</strong>
+            <small id="dataSourceLabel">Fonte</small>
+          </article>
+          <article class="stat-card">
+            <span>Percentil 50%</span>
+            <strong id="leadTimePercentile50">-</strong>
+            <small>50% das issues em ate este prazo</small>
+          </article>
+          <article class="stat-card">
+            <span>Percentil 85%</span>
+            <strong id="leadTimePercentile85">-</strong>
+            <small>85% das issues em ate este prazo</small>
+          </article>
+          <article class="stat-card">
+            <span>Percentil 90%</span>
+            <strong id="leadTimePercentile90">-</strong>
+            <small>90% das issues em ate este prazo</small>
+          </article>
+        </section>
+
+        <section class="dashboard-grid metric-view is-active" data-metric-view="throughput">
+          <article class="card chart-card full-span">
+            <div class="card-header">
+              <div>
+                <p class="eyebrow">Throughput mensal</p>
+                <h3>Serie temporal</h3>
+              </div>
+              <span class="chip">/metrics/throughput</span>
+            </div>
+            <div id="throughputChart" class="chart-list"></div>
+          </article>
+        </section>
+
+        <section class="dashboard-grid metric-view" data-metric-view="lead-time">
+          <article class="card chart-card full-span">
+            <div class="card-header">
+              <div>
+                <p class="eyebrow">Lead time mensal</p>
+                <h3>Comparativo por mes</h3>
+              </div>
+              <span class="chip">/metrics/lead-time</span>
+            </div>
+            <div id="leadTimeChart" class="chart-list"></div>
+          </article>
+        </section>
+      </main>
+    </div>
+
+    <script type="module" src="./app.js"></script>
+  </body>
+  </html>

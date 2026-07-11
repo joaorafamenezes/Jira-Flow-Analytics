@@ -1,0 +1,32 @@
+{
+  "name": "jira-flow-analytics",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Base project for extracting Jira data and generating delivery flow indicators.",
+  "scripts": {
+    "dev": "tsx watch src/server.ts",
+    "dev:nodemon": "nodemon",
+    "dev:ui": "node frontend/server.mjs",
+    "build": "tsc -p tsconfig.json",
+    "start": "node dist/server.js",
+    "check": "tsc --noEmit -p tsconfig.json"
+  },
+  "engines": {
+    "node": ">=22.0.0"
+  },
+  "dependencies": {
+    "bullmq": "^5.58.0",
+    "dotenv": "^16.6.1",
+    "fastify": "^5.4.0",
+    "fastify-plugin": "^5.0.1",
+    "jira.js": "^5.2.0",
+    "pino-pretty": "^13.1.1",
+    "zod": "^4.0.5"
+  },
+  "devDependencies": {
+    "@types/node": "^24.0.14",
+    "nodemon": "^3.1.14",
+    "tsx": "^4.20.3",
+    "typescript": "^5.8.3"
+  }
+}
