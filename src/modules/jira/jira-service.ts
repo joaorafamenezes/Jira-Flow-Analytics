@@ -1,6 +1,14 @@
 import type { Version3Client } from 'jira.js';
 import { env } from '../../config/env';
 
+export type JiraRuntimeConfig = {
+  host?: string;
+  email?: string;
+  apiToken?: string;
+  projectKey?: string;
+  defaultJql?: string;
+};
+
 type JiraIssueSummary = {
   id: string;
   key: string;
@@ -46,7 +54,9 @@ type JiraChangelogResponse = {
     created?: string;
     items?: Array<{
       field?: string;
+      from?: string | null;
       fromString?: string | null;
+      to?: string | null;
       toString?: string | null;
     }>;
   }>;
@@ -61,12 +71,23 @@ export class JiraService {
     void this.client;
   }
 
-  async getRecentIssues(jql = env.JIRA_DEFAULT_JQL, maxResults = 20): Promise<JiraIssueSummary[]> {
-    return this.searchIssues(jql, maxResults);
+  async getRecentIssues(
+    jql?: string,
+    maxResults = 20,
+    config?: JiraRuntimeConfig
+  ): Promise<JiraIssueSummary[]> {
+    const resolvedConfig = this.resolveConfig(config);
+    return this.searchIssues(jql ?? resolvedConfig.defaultJql, maxResults, [], resolvedConfig);
   }
 
-  async searchIssues(jql: string, maxResults = 100, extraFields: string[] = []): Promise<JiraIssueSummary[]> {
-    const auth = Buffer.from(`${env.JIRA_EMAIL}:${env.JIRA_API_TOKEN}`).toString('base64');
+  async searchIssues(
+    jql: string,
+    maxResults = 100,
+    extraFields: string[] = [],
+    config?: JiraRuntimeConfig
+  ): Promise<JiraIssueSummary[]> {
+    const resolvedConfig = this.resolveConfig(config);
+    const auth = Buffer.from(`${resolvedConfig.email}:${resolvedConfig.apiToken}`).toString('base64');
     const fields = Array.from(new Set([
       'summary',
       'status',
@@ -77,7 +98,7 @@ export class JiraService {
       ...extraFields
     ]));
 
-    const response = await fetch(`${env.JIRA_HOST}/rest/api/3/search/jql`, {
+    const response = await fetch(`${resolvedConfig.host}/rest/api/3/search/jql`, {
       method: 'POST',
       headers: {
         Accept: 'application/json',
@@ -123,11 +144,12 @@ export class JiraService {
     }));
   }
 
-  async getProjectOverview() {
-    const issues = await this.getRecentIssues();
+  async getProjectOverview(config?: JiraRuntimeConfig) {
+    const resolvedConfig = this.resolveConfig(config);
+    const issues = await this.getRecentIssues(undefined, 20, resolvedConfig);
 
     return {
-      projectKey: env.JIRA_PROJECT_KEY,
+      projectKey: resolvedConfig.projectKey,
       fetchedAt: new Date().toISOString(),
       recentIssues: issues.length,
       statuses: issues.reduce<Record<string, number>>((acc, issue) => {
@@ -137,9 +159,10 @@ export class JiraService {
     };
   }
 
-  async getBoardColumnStatuses(boardId: number, columnName: string): Promise<string[]> {
-    const auth = Buffer.from(`${env.JIRA_EMAIL}:${env.JIRA_API_TOKEN}`).toString('base64');
-    const response = await fetch(`${env.JIRA_HOST}/rest/agile/1.0/board/${boardId}/configuration`, {
+  async getBoardColumnStatuses(boardId: number, columnName: string, config?: JiraRuntimeConfig): Promise<string[]> {
+    const resolvedConfig = this.resolveConfig(config);
+    const auth = Buffer.from(`${resolvedConfig.email}:${resolvedConfig.apiToken}`).toString('base64');
+    const response = await fetch(`${resolvedConfig.host}/rest/agile/1.0/board/${boardId}/configuration`, {
       method: 'GET',
       headers: {
         Accept: 'application/json',
@@ -158,18 +181,25 @@ export class JiraService {
     );
 
     return (column?.statuses ?? [])
-      .map((status) => status.name ?? '')
-      .filter((statusName) => statusName.length > 0);
+      .flatMap((status) => {
+        const refs = [status.id, status.name]
+          .filter((value): value is string | number => value !== null && value !== undefined)
+          .map((value) => String(value).trim())
+          .filter((value) => value.length > 0);
+
+        return refs;
+      });
   }
 
-  async getIssueChangelog(issueKey: string) {
-    const auth = Buffer.from(`${env.JIRA_EMAIL}:${env.JIRA_API_TOKEN}`).toString('base64');
+  async getIssueChangelog(issueKey: string, config?: JiraRuntimeConfig) {
+    const resolvedConfig = this.resolveConfig(config);
+    const auth = Buffer.from(`${resolvedConfig.email}:${resolvedConfig.apiToken}`).toString('base64');
     const values: NonNullable<JiraChangelogResponse['values']> = [];
     let startAt = 0;
     let isLast = false;
 
     while (!isLast) {
-      const response = await fetch(`${env.JIRA_HOST}/rest/api/3/issue/${issueKey}/changelog?startAt=${startAt}&maxResults=100`, {
+      const response = await fetch(`${resolvedConfig.host}/rest/api/3/issue/${issueKey}/changelog?startAt=${startAt}&maxResults=100`, {
         method: 'GET',
         headers: {
           Accept: 'application/json',
@@ -189,5 +219,15 @@ export class JiraService {
     }
 
     return values;
+  }
+
+  private resolveConfig(config?: JiraRuntimeConfig) {
+    return {
+      host: config?.host ?? env.JIRA_HOST,
+      email: config?.email ?? env.JIRA_EMAIL,
+      apiToken: config?.apiToken ?? env.JIRA_API_TOKEN,
+      projectKey: config?.projectKey ?? env.JIRA_PROJECT_KEY,
+      defaultJql: config?.defaultJql ?? env.JIRA_DEFAULT_JQL
+    };
   }
 }

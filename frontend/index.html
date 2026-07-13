@@ -12,184 +12,391 @@
         <div class="brand">
           <div class="brand-mark">JFA</div>
           <div>
-            <p class="eyebrow">Analytics Workspace</p>
+            <p class="eyebrow">Flow Intelligence</p>
             <h1>Jira Flow Analytics</h1>
           </div>
         </div>
 
-        <div class="panel">
-          <h2>Conexao</h2>
-          <label>
-            Fonte
-            <select id="source">
-              <option value="mock">Mock</option>
-              <option value="jira">Jira</option>
-            </select>
-          </label>
-          <label>
-            Data inicial
-            <input id="startDate" type="date" value="2026-01-01" />
-          </label>
-          <label>
-            Data final
-            <input id="endDate" type="date" value="2026-09-01" />
-          </label>
-        </div>
-
-        <div class="panel">
-          <h2>Filtros</h2>
-          <label>
-            Tipo
-            <input id="issueType" type="text" placeholder="Story, Task, Bug..." />
-          </label>
-          <label>
-            Squad
-            <input id="squad" type="text" placeholder="Core, Growth..." />
-          </label>
-          <label>
-            Responsavel
-            <input id="assignee" type="text" placeholder="Joao, Ana..." />
-          </label>
-          <label>
-            Prioridade
-            <input id="priority" type="text" placeholder="High, Medium..." />
-          </label>
-        </div>
-
-        <div class="panel">
-          <h2>Lead Time</h2>
-          <label>
-            Inicio
-            <select id="startMode">
-              <option value="boardColumn">Coluna do board</option>
-              <option value="created">Criacao da issue</option>
-              <option value="fieldDate">Campo de data</option>
-            </select>
-          </label>
-          <label>
-            Board ID
-            <input id="boardId" type="number" value="1" />
-          </label>
-          <label>
-            Coluna inicial
-            <input id="startColumnName" type="text" value="Pronto para Desenvolvimento" />
-          </label>
-          <label>
-            Coluna final
-            <input id="endColumnName" type="text" value="Em Produção" />
-          </label>
-          <label>
-            Campo inicial
-            <input id="startFieldId" type="text" value="customfield_10000" />
-          </label>
-        </div>
-
-        <div class="actions">
-          <button id="refreshButton" class="primary">Atualizar Painel</button>
-        </div>
+        <nav class="side-menu" aria-label="Navegacao principal">
+          <button class="side-menu-item is-active" data-view-tab="dashboard" type="button">Dashboard</button>
+          <button class="side-menu-item" data-view-tab="settings" type="button">Configuracoes</button>
+        </nav>
       </aside>
 
       <main class="content">
-        <section class="hero">
-          <div>
-            <p class="eyebrow">Observabilidade de fluxo</p>
-            <h2 id="heroTitle">Throughput em uma consulta visual</h2>
-            <p class="hero-copy" id="heroCopy">
-              Consulte dados reais do Jira ou massa mockada para validar volume entregue por periodo, filtros e tendencias sem depender do board estar cheio.
-            </p>
-          </div>
-          <div class="hero-badge" id="connectionStatus">Aguardando consulta</div>
-        </section>
-
-        <nav class="metric-menu" aria-label="Selecao de metrica">
-          <button class="metric-tab is-active" data-metric-tab="throughput" type="button">Throughput</button>
-          <button class="metric-tab" data-metric-tab="lead-time" type="button">Lead Time</button>
-        </nav>
-
-        <section class="stats-grid metric-view is-active" data-metric-view="throughput">
-          <article class="stat-card stat-card-wide">
-            <span>Throughput total</span>
-            <strong id="throughputTotal">-</strong>
-            <small id="throughputPeriodLabel">Periodo</small>
-          </article>
-          <article class="stat-card">
-            <span>Fonte</span>
-            <strong id="throughputSourceLabel">-</strong>
-            <small>origem da consulta</small>
-          </article>
-          <article class="stat-card">
-            <span>Tipo filtrado</span>
-            <strong id="throughputIssueType">Todos</strong>
-            <small>issue type</small>
-          </article>
-          <article class="stat-card">
-            <span>Squad filtrada</span>
-            <strong id="throughputSquad">Todas</strong>
-            <small>contexto</small>
-          </article>
-        </section>
-
-        <section class="stats-grid metric-view" data-metric-view="lead-time">
-          <article class="stat-card">
-            <span>Lead time medio</span>
-            <strong id="leadTimeAverage">-</strong>
-            <small>dias</small>
-          </article>
-          <article class="stat-card">
-            <span>Lead time mediano</span>
-            <strong id="leadTimeMedian">-</strong>
-            <small>dias</small>
-          </article>
-          <article class="stat-card">
-            <span>Issues analisadas</span>
-            <strong id="leadTimeCount">-</strong>
-            <small id="dataSourceLabel">Fonte</small>
-          </article>
-          <article class="stat-card">
-            <span>Percentil 50%</span>
-            <strong id="leadTimePercentile50">-</strong>
-            <small>50% das issues em ate este prazo</small>
-          </article>
-          <article class="stat-card">
-            <span>Percentil 85%</span>
-            <strong id="leadTimePercentile85">-</strong>
-            <small>85% das issues em ate este prazo</small>
-          </article>
-          <article class="stat-card">
-            <span>Percentil 90%</span>
-            <strong id="leadTimePercentile90">-</strong>
-            <small>90% das issues em ate este prazo</small>
-          </article>
-        </section>
-
-        <section class="dashboard-grid metric-view is-active" data-metric-view="throughput">
-          <article class="card chart-card full-span">
-            <div class="card-header">
+        <div id="chartModal" class="chart-modal" hidden>
+          <div id="chartModalBackdrop" class="chart-modal-backdrop"></div>
+          <section class="chart-modal-dialog" role="dialog" aria-modal="true" aria-labelledby="chartModalTitle">
+            <div class="chart-modal-header">
               <div>
-                <p class="eyebrow">Throughput mensal</p>
-                <h3>Serie temporal</h3>
+                <p class="eyebrow">Visualizacao expandida</p>
+                <h2 id="chartModalTitle">Grafico</h2>
+                <p id="chartModalDescription" class="hero-copy"></p>
               </div>
-              <span class="chip">/metrics/throughput</span>
+              <button id="chartModalClose" class="secondary chart-modal-close" type="button" aria-label="Fechar modal" title="Fechar">
+                <span aria-hidden="true">&times;</span>
+              </button>
             </div>
-            <div id="throughputChart" class="chart-list"></div>
-          </article>
+            <div id="chartModalMount" class="chart-modal-mount"></div>
+          </section>
+        </div>
+
+        <section class="view-panel is-active" data-view-panel="dashboard">
+          <section class="hero">
+            <div>
+              <p class="eyebrow">Observabilidade de fluxo</p>
+              <h2 id="heroTitle">Painel de fluxo inspirado em operacoes Kanban</h2>
+              <p class="hero-copy" id="heroCopy">
+                Monitore previsibilidade, cadencia, envelhecimento do WIP e distribuicao por etapa com um unico painel consolidado.
+              </p>
+            </div>
+            <div class="hero-actions">
+              <button id="exportButton" class="secondary" type="button">Exportar imagem</button>
+              <div class="hero-badge" id="connectionStatus">Aguardando consulta</div>
+            </div>
+          </section>
+
+          <section class="dashboard-toolbar">
+            <div class="panel">
+              <div class="panel-title-row">
+                <h2>Filtros</h2>
+                <button id="resetButton" class="link-button" type="button">Reiniciar</button>
+              </div>
+              <div class="compact-grid">
+                <label>
+                  Fonte
+                  <select id="source">
+                    <option value="mock">Mock</option>
+                    <option value="jira">Jira</option>
+                  </select>
+                </label>
+                <label>
+                  De
+                  <input id="startDate" type="date" value="2026-01-01" />
+                </label>
+                <label>
+                  Ate
+                  <input id="endDate" type="date" value="2026-09-01" />
+                </label>
+              </div>
+            </div>
+
+            <div class="panel">
+              <h2>Recortes</h2>
+              <div class="compact-grid">
+                <label>
+                  Tipo
+                  <select id="issueType">
+                    <option value="">Todos</option>
+                  </select>
+                </label>
+                <label>
+                  Squad
+                  <select id="squad">
+                    <option value="">Todos</option>
+                  </select>
+                </label>
+                <label>
+                  Responsavel
+                  <select id="assignee">
+                    <option value="">Todos</option>
+                  </select>
+                </label>
+                <label>
+                  Prioridade
+                  <select id="priority">
+                    <option value="">Todos</option>
+                  </select>
+                </label>
+              </div>
+            </div>
+            <div class="actions toolbar-actions">
+              <button id="refreshButton" class="primary" type="button">Atualizar painel</button>
+            </div>
+          </section>
+
+          <section class="stats-grid dashboard-stats">
+            <article class="stat-card">
+              <span>Concluidos</span>
+              <strong id="completedCount">-</strong>
+              <small>itens entregues</small>
+            </article>
+            <article class="stat-card">
+              <span>Em andamento (WIP)</span>
+              <strong id="wipCount">-</strong>
+              <small>itens ativos</small>
+            </article>
+            <article class="stat-card">
+              <span>Total</span>
+              <strong id="totalCount">-</strong>
+              <small id="summaryPeriodLabel">periodo analisado</small>
+            </article>
+            <article class="stat-card stat-card-dark">
+              <span>Lead Time P50</span>
+              <strong id="leadTimeP50">-</strong>
+              <small>50% de confianca</small>
+            </article>
+            <article class="stat-card stat-card-dark">
+              <span>Lead Time P85</span>
+              <strong id="leadTimeP85">-</strong>
+              <small>85% de confianca</small>
+            </article>
+            <article class="stat-card stat-card-dark">
+              <span>Lead Time P95</span>
+              <strong id="leadTimeP95">-</strong>
+              <small>95% de confianca</small>
+            </article>
+            <article class="stat-card stat-card-dark">
+              <span>Eficiencia de Fluxo</span>
+              <strong id="flowEfficiency">-</strong>
+              <small id="flowEfficiencyDetail">tempo ativo x espera</small>
+            </article>
+          </section>
+
+          <section class="insights-section">
+            <div class="section-header">
+              <div>
+                <p class="eyebrow">Insights de gestao de fluxo</p>
+                <h3>Leituras automaticas do painel</h3>
+              </div>
+            </div>
+            <div id="insightsGrid" class="insights-grid"></div>
+          </section>
+
+          <section class="dashboard-grid">
+            <article class="card" data-chart-card="scatter">
+              <div class="card-header">
+                <div>
+                  <h3>Lead Time Scatterplot</h3>
+                  <p class="section-copy">Distribuicao do lead time por item concluido.</p>
+                </div>
+                <button class="secondary chart-maximize-button" data-maximize-chart="scatter" type="button" aria-label="Maximizar grafico" title="Maximizar grafico">
+                  <span aria-hidden="true">&#x26F6;</span>
+                </button>
+              </div>
+              <div id="scatterChart" class="chart-area"></div>
+              <p class="card-footnote" id="scatterFootnote"></p>
+            </article>
+
+            <article class="card" data-chart-card="leadTimeTrend">
+              <div class="card-header">
+                <div>
+                  <h3>Lead Time Comparativo</h3>
+                  <p class="section-copy" id="leadTimeTrendDescription">Comparativo do lead time medio de entrega mes a mes.</p>
+                </div>
+                <div class="chart-card-actions">
+                  <label class="chart-select">
+                    <span>Periodo</span>
+                    <select id="leadTimePeriod">
+                      <option value="month">Mes</option>
+                      <option value="week">Semana</option>
+                    </select>
+                  </label>
+                  <button class="secondary chart-maximize-button" data-maximize-chart="leadTimeTrend" type="button" aria-label="Maximizar grafico" title="Maximizar grafico">
+                    <span aria-hidden="true">&#x26F6;</span>
+                  </button>
+                </div>
+              </div>
+              <div id="leadTimeTrendChart" class="chart-area"></div>
+              <p class="card-footnote" id="leadTimeTrendFootnote"></p>
+            </article>
+          </section>
+
+          <section class="dashboard-grid">
+            <article class="card" data-chart-card="throughput">
+              <div class="card-header">
+                <div>
+                  <h3>Throughput Run Chart</h3>
+                  <p class="section-copy" id="runChartDescription">Itens concluidos por semana.</p>
+                </div>
+                <div class="chart-card-actions">
+                  <label class="chart-select">
+                    <span>Periodo</span>
+                    <select id="throughputPeriod">
+                      <option value="week">Semana</option>
+                      <option value="month">Mes</option>
+                    </select>
+                  </label>
+                  <button class="secondary chart-maximize-button" data-maximize-chart="throughput" type="button" aria-label="Maximizar grafico" title="Maximizar grafico">
+                    <span aria-hidden="true">&#x26F6;</span>
+                  </button>
+                </div>
+              </div>
+              <div id="runChart" class="chart-area"></div>
+              <p class="card-footnote" id="runFootnote"></p>
+            </article>
+
+            <article class="card" data-chart-card="stageTime">
+              <div class="card-header">
+                <div>
+                  <h3>Tempo Medio por Etapa</h3>
+                  <p class="section-copy">Tempo medio em que as demandas permaneceram em cada etapa do fluxo.</p>
+                </div>
+                <button class="secondary chart-maximize-button" data-maximize-chart="stageTime" type="button" aria-label="Maximizar grafico" title="Maximizar grafico">
+                  <span aria-hidden="true">&#x26F6;</span>
+                </button>
+              </div>
+              <div id="stageTimeChart" class="chart-area"></div>
+              <p class="card-footnote" id="stageTimeFootnote"></p>
+            </article>
+          </section>
+
+          <section class="dashboard-grid">
+            <article class="card" data-chart-card="histogram">
+              <div class="card-header">
+                <div>
+                  <h3>Histograma Lead Time</h3>
+                  <p class="section-copy">Frequencia por faixa de lead time.</p>
+                </div>
+                <button class="secondary chart-maximize-button" data-maximize-chart="histogram" type="button" aria-label="Maximizar grafico" title="Maximizar grafico">
+                  <span aria-hidden="true">&#x26F6;</span>
+                </button>
+              </div>
+              <div id="histogramChart" class="chart-area"></div>
+              <p class="card-footnote" id="histogramFootnote"></p>
+            </article>
+            <article class="card" data-chart-card="cfd">
+              <div class="card-header">
+                <div>
+                  <h3>Cumulative Flow Diagram</h3>
+                  <p class="section-copy">Evolucao dos itens em cada etapa ao longo do tempo.</p>
+                </div>
+                <button class="secondary chart-maximize-button" data-maximize-chart="cfd" type="button" aria-label="Maximizar grafico" title="Maximizar grafico">
+                  <span aria-hidden="true">&#x26F6;</span>
+                </button>
+              </div>
+              <div id="cfdChart" class="chart-area"></div>
+              <p class="card-footnote" id="cfdFootnote"></p>
+            </article>
+          </section>
         </section>
 
-        <section class="dashboard-grid metric-view" data-metric-view="lead-time">
-          <article class="card chart-card full-span">
-            <div class="card-header">
-              <div>
-                <p class="eyebrow">Lead time mensal</p>
-                <h3>Comparativo por mes</h3>
-              </div>
-              <span class="chip">/metrics/lead-time</span>
+        <section class="view-panel" data-view-panel="settings">
+          <section class="hero">
+            <div>
+              <p class="eyebrow">Configuracao do painel</p>
+              <h2>Preferencias e parametros</h2>
+              <p class="hero-copy">
+                Centralize aqui os parametros da integracao com o Jira, do calculo de lead time e do tema visual.
+              </p>
             </div>
-            <div id="leadTimeChart" class="chart-list"></div>
-          </article>
+          </section>
+
+          <section class="settings-grid">
+            <article class="panel">
+              <h2>Integracao Jira</h2>
+              <label>
+                Host do Jira
+                <input id="jiraHost" type="url" placeholder="https://sua-empresa.atlassian.net" />
+              </label>
+              <label>
+                Email da conta
+                <input id="jiraEmail" type="email" placeholder="voce@empresa.com" />
+              </label>
+              <label>
+                API Token
+                <div class="secret-field">
+                  <input id="jiraApiToken" type="password" placeholder="Token de API do Jira" />
+                  <button id="toggleJiraApiToken" class="secret-toggle" type="button" aria-label="Visualizar API Token por 5 segundos" title="Visualizar por 5 segundos">
+                    <span aria-hidden="true">&#128065;</span>
+                  </button>
+                </div>
+              </label>
+              <label>
+                Project Key
+                <input id="jiraProjectKey" type="text" placeholder="KAN" />
+              </label>
+              <label>
+                JQL padrao
+                <textarea id="jiraDefaultJql" rows="4" placeholder="project = KAN ORDER BY updated DESC"></textarea>
+              </label>
+            </article>
+
+            <article class="panel">
+              <h2>Lead Time</h2>
+              <label>
+                Inicio
+                <select id="startMode">
+                  <option value="boardColumn">Coluna do board</option>
+                  <option value="created">Criacao da issue</option>
+                  <option value="fieldDate">Campo de data</option>
+                </select>
+              </label>
+              <label>
+                Board ID
+                <select id="boardId">
+                  <option value="1">1</option>
+                </select>
+              </label>
+              <label>
+                Coluna inicial
+                <select id="startColumnName">
+                  <option value="Pronto para Desenvolvimento">Pronto para Desenvolvimento</option>
+                </select>
+              </label>
+              <label>
+                Coluna final
+                <select id="endColumnName">
+                  <option value="Em Produção">Em Produção</option>
+                </select>
+              </label>
+              <label>
+                Campo inicial
+                <select id="startFieldId">
+                  <option value="customfield_10000">customfield_10000</option>
+                </select>
+              </label>
+            </article>
+
+            <article class="panel">
+              <h2>Eficiencia de Fluxo</h2>
+              <label>
+                Etapas ativas
+                <textarea id="flowActiveStatuses" rows="5" placeholder="Em Desenvolvimento&#10;Em Testes&#10;Em Deploy para Produção"></textarea>
+              </label>
+              <label>
+                Etapas inativas
+                <textarea id="flowInactiveStatuses" rows="5" placeholder="Pronto para Desenvolvimento&#10;Pronto para Testes"></textarea>
+              </label>
+              <p class="section-copy">
+                Informe uma etapa por linha para classificar onde o trabalho agrega valor e onde fica em espera.
+              </p>
+            </article>
+
+            <article class="panel">
+              <h2>Tema</h2>
+              <label>
+                Tema visual
+                <select id="themeSelect">
+                  <option value="current">Tema atual</option>
+                  <option value="dark">Tema dark</option>
+                </select>
+              </label>
+              <p class="section-copy">
+                O tema e aplicado imediatamente e fica salvo no navegador para as proximas visitas.
+              </p>
+            </article>
+
+            <article class="panel">
+              <h2>Atualizacao do Painel</h2>
+              <label>
+                Nova consulta
+                <select id="refreshInterval">
+                  <option value="manual">Somente ao clique</option>
+                  <option value="15m">15 min</option>
+                  <option value="1h">1 hora</option>
+                  <option value="24h">24 horas</option>
+                </select>
+              </label>
+              <p class="section-copy">
+                Define quando o painel deve fazer uma nova consulta automaticamente na API ou no mock.
+              </p>
+            </article>
+          </section>
         </section>
       </main>
     </div>
 
     <script type="module" src="./app.js"></script>
   </body>
-  </html>
+</html>
