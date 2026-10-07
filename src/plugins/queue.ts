@@ -11,6 +11,13 @@ const queuePlugin: FastifyPluginAsync = async (app) => {
     }
   });
 
+  jiraSyncQueue.on('error', (err) => {
+    app.log.error(
+      { err: err.message },
+      'Erro na fila BullMQ: Não foi possível conectar ao Redis. Execute "npm run docker:up" ou "docker compose up -d".'
+    );
+  });
+
   app.decorate('jiraSyncQueue', jiraSyncQueue);
 
   app.addHook('onClose', async () => {

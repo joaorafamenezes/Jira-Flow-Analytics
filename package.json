@@ -4,9 +4,16 @@
   "private": true,
   "description": "Base project for extracting Jira data and generating delivery flow indicators.",
   "scripts": {
+    "predev": "node scripts/check-env.mjs",
     "dev": "tsx watch src/server.ts",
     "dev:nodemon": "nodemon",
     "dev:ui": "node frontend/server.mjs",
+    "dev:all": "node scripts/dev-all.mjs",
+    "docker:up": "docker compose up -d",
+    "docker:down": "docker compose down",
+    "docker:logs": "docker compose logs -f",
+    "docker:ps": "docker compose ps",
+    "docker:restart": "docker compose restart",
     "build": "tsc -p tsconfig.json",
     "start": "node dist/server.js",
     "check": "tsc --noEmit -p tsconfig.json"

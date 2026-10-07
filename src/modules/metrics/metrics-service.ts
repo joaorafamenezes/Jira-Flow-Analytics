@@ -71,6 +71,12 @@ type FlowItem = {
     status: string;
     at: string;
   }>;
+  blockedPeriods: Array<{
+    startAt: string;
+    endAt: string;
+  }>;
+  blockedDays: number;
+  isBlocked: boolean;
   leadTimeDays: number | null;
   cycleTimeDays: number | null;
   agingDays: number | null;
@@ -225,6 +231,11 @@ export class MetricsService {
     const flowItems = source === 'mock'
       ? this.getMockFlowItems(input, startMode)
       : await this.getJiraFlowItems(input, startMode, jiraConfig);
+    const flowEfficiencyStatuses = this.resolveFlowEfficiencyStatuses(
+      input.flowActiveStatuses,
+      input.flowInactiveStatuses,
+      flowItems
+    );
 
     const completedItems = flowItems.filter((item) => item.isDone && item.resolvedAt);
     const wipItems = flowItems.filter((item) => !item.isDone);
@@ -240,6 +251,9 @@ export class MetricsService {
     const leadTimeP50 = this.getPercentileValue(leadTimeValues, 50);
     const leadTimeP85 = this.getPercentileValue(leadTimeValues, 85);
     const leadTimeP95 = this.getPercentileValue(leadTimeValues, 95);
+    const averageLeadTimeDays = leadTimeValues.length === 0
+      ? 0
+      : Number((leadTimeValues.reduce((sum, value) => sum + value, 0) / leadTimeValues.length).toFixed(2));
     const agingP85 = this.getPercentileValue(agingValues, 85);
     const agingP95 = this.getPercentileValue(agingValues, 95);
 
@@ -271,8 +285,27 @@ export class MetricsService {
     const histogram = this.buildHistogram(leadTimeValues);
     const leadTimeTrend = this.buildLeadTimeAverageByPeriod(completedItems, leadTimePeriod);
     const stageTimeAverage = this.buildStageTimeAverage(flowItems);
-    const flowEfficiency = this.buildFlowEfficiency(completedItems, activeStatuses, inactiveStatuses);
-    const cfd = this.buildCfdSeries(flowItems, input.startDate, input.endDate);
+    const effectiveEndDate = this.getEffectiveRangeEndDate(input.endDate);
+    const flowEfficiency = this.buildFlowEfficiency(
+      flowItems,
+      flowEfficiencyStatuses.activeStatuses,
+      flowEfficiencyStatuses.inactiveStatuses
+    );
+    const flowEfficiencyTrend = this.buildFlowEfficiencyByPeriod(
+      flowItems,
+      input.startDate,
+      effectiveEndDate,
+      'month',
+      flowEfficiencyStatuses.activeStatuses,
+      flowEfficiencyStatuses.inactiveStatuses
+    );
+    const blockedSummary = this.buildBlockedSummary(wipItems);
+    const blockedRateByPeriod = this.buildBlockedRateByPeriod(flowItems, input.startDate, effectiveEndDate, throughputPeriod);
+    const blockedTimeByPeriod = this.buildBlockedTimeByPeriod(flowItems, input.startDate, effectiveEndDate, throughputPeriod);
+    const cfdStatuses = source === 'jira'
+      ? await this.getBoardStatusOrder(input, jiraConfig, flowItems)
+      : this.getDefaultCfdStatuses(flowItems);
+    const cfd = this.buildCfdSeries(flowItems, input.startDate, effectiveEndDate, cfdStatuses);
     const topAgingItems = wipItems
       .filter((item) => item.agingDays !== null)
       .sort((a, b) => (b.agingDays ?? 0) - (a.agingDays ?? 0))
@@ -280,6 +313,8 @@ export class MetricsService {
       .map((item, index) => ({
         rank: index + 1,
         key: item.key,
+        summary: item.summary,
+        issueType: item.issueType,
         status: item.currentColumn,
         agingDays: item.agingDays,
         zone: item.agingDays !== null && item.agingDays > agingP95
@@ -306,17 +341,21 @@ export class MetricsService {
       projectKey: jiraConfig.projectKey,
       source,
       startDate: input.startDate,
-      endDate: input.endDate,
+      endDate: effectiveEndDate,
       summary: {
         completedCount: completedItems.length,
         wipCount: wipItems.length,
         totalCount: flowItems.length,
+        averageLeadTimeDays,
         leadTimeP50,
         leadTimeP85,
         leadTimeP95,
         flowEfficiencyPercent: flowEfficiency.efficiencyPercent,
         activeTimeAverageDays: flowEfficiency.activeTimeAverageDays,
         waitTimeAverageDays: flowEfficiency.waitTimeAverageDays,
+        blockedItemsPercent: blockedSummary.blockedItemsPercent,
+        blockedItemsCount: blockedSummary.blockedItemsCount,
+        averageBlockedDays: blockedSummary.averageBlockedDays,
         agingP85,
         agingP95
       },
@@ -341,6 +380,18 @@ export class MetricsService {
           period: throughputPeriod,
           buckets: throughputByPeriod
         },
+        blockedRateChart: {
+          period: throughputPeriod,
+          buckets: blockedRateByPeriod
+        },
+        blockedTimeChart: {
+          period: throughputPeriod,
+          buckets: blockedTimeByPeriod
+        },
+        flowEfficiencyTrend: {
+          period: 'month',
+          buckets: flowEfficiencyTrend
+        },
         stageTimeAverage,
         agingChart: {
           percentiles: {
@@ -351,7 +402,10 @@ export class MetricsService {
         },
         cycleTimeHistogram: histogram,
         stageBreakdown,
-        cumulativeFlow: cfd
+        cumulativeFlow: {
+          statuses: cfdStatuses,
+          series: cfd
+        }
       }
     };
   }
@@ -402,12 +456,12 @@ export class MetricsService {
     input: ThroughputInput | LeadTimeInput,
     jiraConfig: JiraRuntimeConfig
   ) {
+    const exclusiveEndDate = this.getExclusiveEndDate(input.endDate);
     const filters = [
       `project = ${jiraConfig.projectKey}`,
       `resolutiondate >= "${input.startDate}"`,
-      `resolutiondate < "${input.endDate}"`
+      `resolutiondate < "${exclusiveEndDate}"`
     ];
-
     if (input.issueType) {
       filters.push(`issuetype = "${input.issueType}"`);
     }
@@ -426,7 +480,7 @@ export class MetricsService {
 
   private getMockIssues(input: ThroughputInput | LeadTimeInput) {
     const start = new Date(`${input.startDate}T00:00:00.000Z`);
-    const end = new Date(`${input.endDate}T00:00:00.000Z`);
+    const end = new Date(`${this.getExclusiveEndDate(input.endDate)}T00:00:00.000Z`);
 
     return mockResolvedIssues.filter((issue) => {
       if (!issue.resolvedAt) {
@@ -480,6 +534,9 @@ export class MetricsService {
         currentColumn: 'Done',
         currentColumnEnteredAt: resolvedAt ?? startAt,
         transitions,
+        blockedPeriods: this.buildMockBlockedPeriods(startAt, resolvedAt ?? '', issue.key),
+        blockedDays: 0,
+        isBlocked: false,
         leadTimeDays: resolvedAt ? this.diffInDays(startAt, resolvedAt) : null,
         cycleTimeDays: resolvedAt ? this.diffInDays(transitions[1]?.at ?? startAt, resolvedAt) : null,
         agingDays: null,
@@ -507,7 +564,7 @@ export class MetricsService {
       return true;
     });
 
-    return [...doneItems, ...wipItems];
+    return [...doneItems, ...wipItems].map((item) => this.withBlockedMetrics(item));
   }
 
   private async getJiraFlowItems(
@@ -517,44 +574,86 @@ export class MetricsService {
   ) {
     const doneIssues = await this.getLeadTime({ ...input, jiraConfig });
     const recentIssues = await this.jiraService.getRecentIssues(undefined, 20, jiraConfig);
-    const doneItems: FlowItem[] = doneIssues.issues.map((issue) => ({
-      key: issue.key,
-      summary: issue.summary,
-      issueType: issue.issueType,
-      status: issue.status,
-      createdAt: issue.startAt,
-      resolvedAt: issue.endAt,
-      startAt: issue.startAt,
-      currentColumn: 'Done',
-      currentColumnEnteredAt: issue.endAt,
-      transitions: [
-        { status: startMode === 'boardColumn' ? (input.startColumnName ?? env.LEAD_TIME_START_COLUMN_NAME) : 'Start', at: issue.startAt },
-        { status: 'Done', at: issue.endAt }
-      ],
-      leadTimeDays: issue.leadTimeDays,
-      cycleTimeDays: issue.leadTimeDays,
-      agingDays: null,
-      isDone: true
-    }));
+    const endFlowColumn = input.endColumnName ?? env.LEAD_TIME_END_COLUMN_NAME;
+    const startFlowColumn = input.startColumnName ?? env.LEAD_TIME_START_COLUMN_NAME;
+    const doneItems: FlowItem[] = await Promise.all(
+      doneIssues.issues.map(async (issue) => {
+        const changelog = await this.jiraService.getIssueChangelog(issue.key, jiraConfig);
+        const transitions = this.buildJiraStatusTransitions(
+          changelog,
+          startFlowColumn,
+          issue.startAt,
+          endFlowColumn,
+          issue.endAt
+        );
+        const blockedPeriods = this.extractBlockedPeriods(
+          changelog,
+          issue.endAt,
+          endFlowColumn,
+          issue.endAt
+        );
 
-    const pendingItems: FlowItem[] = recentIssues
-      .filter((issue) => !issue.resolvedAt)
-      .map((issue) => ({
-        key: issue.key,
-        summary: issue.summary,
-        issueType: issue.issueType,
-        status: issue.status,
-        createdAt: issue.createdAt,
-        resolvedAt: null,
-        startAt: issue.createdAt,
-        currentColumn: issue.status,
-        currentColumnEnteredAt: issue.createdAt,
-        transitions: [{ status: issue.status, at: issue.createdAt }],
-        leadTimeDays: null,
-        cycleTimeDays: null,
-        agingDays: this.diffInDays(issue.createdAt, new Date().toISOString()),
-        isDone: false
-      }));
+        return this.withBlockedMetrics({
+          key: issue.key,
+          summary: issue.summary,
+          issueType: issue.issueType,
+          status: issue.status,
+          createdAt: issue.startAt,
+          resolvedAt: issue.endAt,
+          startAt: issue.startAt,
+          currentColumn: endFlowColumn,
+          currentColumnEnteredAt: this.getCurrentColumnEnteredAt(transitions, endFlowColumn, issue.endAt),
+          transitions,
+          blockedPeriods,
+          blockedDays: 0,
+          isBlocked: false,
+          leadTimeDays: issue.leadTimeDays,
+          cycleTimeDays: issue.leadTimeDays,
+          agingDays: null,
+          isDone: true
+        });
+      })
+    );
+
+    const pendingItems: FlowItem[] = await Promise.all(
+      recentIssues
+        .filter((issue) => !issue.resolvedAt)
+        .map(async (issue) => {
+          const changelog = await this.jiraService.getIssueChangelog(issue.key, jiraConfig);
+          const initialStatus = this.getInitialStatusFromChangelog(changelog, issue.status);
+          const transitions = this.buildJiraStatusTransitions(
+            changelog,
+            initialStatus,
+            issue.createdAt
+          );
+          const blockedPeriods = this.extractBlockedPeriods(
+            changelog,
+            new Date().toISOString(),
+            issue.status,
+            this.getCurrentColumnEnteredAt(transitions, issue.status, issue.createdAt)
+          );
+
+          return this.withBlockedMetrics({
+            key: issue.key,
+            summary: issue.summary,
+            issueType: issue.issueType,
+            status: issue.status,
+            createdAt: issue.createdAt,
+            resolvedAt: null,
+            startAt: issue.createdAt,
+            currentColumn: issue.status,
+            currentColumnEnteredAt: this.getCurrentColumnEnteredAt(transitions, issue.status, issue.createdAt),
+            transitions,
+            blockedPeriods,
+            blockedDays: 0,
+            isBlocked: false,
+            leadTimeDays: null,
+            cycleTimeDays: null,
+            agingDays: this.diffInDays(issue.createdAt, new Date().toISOString()),
+            isDone: false
+          });
+        })
+    );
 
     return [...doneItems, ...pendingItems];
   }
@@ -621,6 +720,9 @@ export class MetricsService {
         currentColumn,
         currentColumnEnteredAt: currentEnteredAt,
         transitions: this.buildMockWipTransitions(startAt, currentColumn, currentEnteredAt),
+        blockedPeriods: this.buildMockBlockedPeriods(startAt, now, key, currentColumn, currentEnteredAt),
+        blockedDays: 0,
+        isBlocked: false,
         leadTimeDays: this.diffInDays(startAt, now),
         cycleTimeDays: this.diffInDays(startAt, now),
         agingDays,
@@ -705,13 +807,14 @@ export class MetricsService {
   }
 
   private buildStageTimeAverage(flowItems: FlowItem[]) {
+    const now = new Date().toISOString();
     const stageAccumulator = flowItems.reduce<Record<string, { totalDays: number; count: number }>>((acc, item) => {
       const transitions = [...item.transitions].sort((a, b) => a.at.localeCompare(b.at));
 
       transitions.forEach((transition, index) => {
         const nextTransition = transitions[index + 1];
         const endAt = nextTransition?.at
-          ?? (item.isDone ? item.resolvedAt : item.currentColumnEnteredAt);
+          ?? (item.isDone ? item.resolvedAt : now);
 
         if (!endAt || transition.status === 'Done') {
           return;
@@ -742,6 +845,7 @@ export class MetricsService {
   private buildFlowEfficiency(flowItems: FlowItem[], activeStatuses: string[], inactiveStatuses: string[]) {
     const active = new Set(activeStatuses.map((status) => status.toLowerCase()));
     const inactive = new Set(inactiveStatuses.map((status) => status.toLowerCase()));
+    const now = new Date().toISOString();
     let totalActiveDays = 0;
     let totalWaitDays = 0;
     let countedItems = 0;
@@ -753,7 +857,7 @@ export class MetricsService {
 
       transitions.forEach((transition, index) => {
         const nextTransition = transitions[index + 1];
-        const endAt = nextTransition?.at ?? item.resolvedAt;
+        const endAt = nextTransition?.at ?? (item.isDone ? item.resolvedAt : now);
 
         if (!endAt || transition.status === 'Done') {
           return;
@@ -787,6 +891,167 @@ export class MetricsService {
     };
   }
 
+  private buildFlowEfficiencyByPeriod(
+    flowItems: FlowItem[],
+    startDate: string,
+    endDate: string,
+    period: 'week' | 'month',
+    activeStatuses: string[],
+    inactiveStatuses: string[]
+  ) {
+    const active = new Set(activeStatuses.map((status) => status.toLowerCase()));
+    const inactive = new Set(inactiveStatuses.map((status) => status.toLowerCase()));
+    const now = new Date().toISOString();
+    const buckets = this.getPeriodBuckets(startDate, endDate, period);
+
+    return Object.fromEntries(
+      buckets.map((bucket) => {
+        let totalActiveDays = 0;
+        let totalWaitDays = 0;
+
+        flowItems.forEach((item) => {
+          const transitions = [...item.transitions].sort((a, b) => a.at.localeCompare(b.at));
+
+          transitions.forEach((transition, index) => {
+            const nextTransition = transitions[index + 1];
+            const transitionEndAt = nextTransition?.at ?? (item.isDone ? item.resolvedAt : now);
+
+            if (!transitionEndAt) {
+              return;
+            }
+
+            const overlapDays = this.getDateRangeOverlapDays(
+              transition.at,
+              transitionEndAt,
+              bucket.startAt,
+              bucket.endAt
+            );
+
+            if (overlapDays <= 0) {
+              return;
+            }
+
+            const normalizedStatus = transition.status.toLowerCase();
+            if (active.has(normalizedStatus)) {
+              totalActiveDays += overlapDays;
+            } else if (inactive.has(normalizedStatus)) {
+              totalWaitDays += overlapDays;
+            }
+          });
+        });
+
+        const totalTrackedDays = totalActiveDays + totalWaitDays;
+        return [
+          bucket.label,
+          totalTrackedDays === 0 ? 0 : Number(((totalActiveDays / totalTrackedDays) * 100).toFixed(2))
+        ];
+      })
+    );
+  }
+
+  private resolveFlowEfficiencyStatuses(
+    activeStatusesInput: string | undefined,
+    inactiveStatusesInput: string | undefined,
+    flowItems: FlowItem[]
+  ) {
+    const providedActiveStatuses = this.parseStatuses(activeStatusesInput, []);
+    const providedInactiveStatuses = this.parseStatuses(inactiveStatusesInput, []);
+    const discoveredStatuses = this.getUniqueSorted([
+      ...flowItems.map((item) => item.currentColumn),
+      ...flowItems.flatMap((item) => item.transitions.map((transition) => transition.status))
+    ]).filter((status) => status.toLowerCase() !== 'done');
+
+    if (providedActiveStatuses.length > 0 || providedInactiveStatuses.length > 0) {
+      const explicitStatuses = new Set(
+        [...providedActiveStatuses, ...providedInactiveStatuses].map((status) => status.toLowerCase())
+      );
+      const inferredActiveStatuses = discoveredStatuses.filter((status) => {
+        if (explicitStatuses.has(status.toLowerCase())) {
+          return false;
+        }
+
+        return !this.isWaitingStatus(status);
+      });
+      const inferredInactiveStatuses = discoveredStatuses.filter((status) => {
+        if (explicitStatuses.has(status.toLowerCase())) {
+          return false;
+        }
+
+        return this.isWaitingStatus(status);
+      });
+
+      return {
+        activeStatuses: [...providedActiveStatuses, ...inferredActiveStatuses],
+        inactiveStatuses: [...providedInactiveStatuses, ...inferredInactiveStatuses]
+      };
+    }
+
+    const inactiveStatuses = discoveredStatuses.filter((status) => this.isWaitingStatus(status));
+    const activeStatuses = discoveredStatuses.filter((status) => !this.isWaitingStatus(status));
+
+    return {
+      activeStatuses,
+      inactiveStatuses
+    };
+  }
+
+  private isWaitingStatus(status: string) {
+    if (/^em\s+/i.test(status)) {
+      return false;
+    }
+
+    return /(pronto|ready|backlog|aguard|wait|todo|to do|selecionad)/i.test(status);
+  }
+
+  private buildBlockedSummary(wipItems: FlowItem[]) {
+    if (wipItems.length === 0) {
+      return {
+        blockedItemsPercent: 0,
+        blockedItemsCount: 0,
+        averageBlockedDays: 0
+      };
+    }
+
+    const referenceNow = new Date().toISOString();
+    const blockedItems = wipItems.filter((item) => this.isItemCurrentlyBlocked(item, referenceNow));
+    const totalBlockedDays = blockedItems.reduce((sum, item) => sum + this.getCurrentBlockedDays(item, referenceNow), 0);
+
+    return {
+      blockedItemsPercent: Number(((blockedItems.length / wipItems.length) * 100).toFixed(2)),
+      blockedItemsCount: blockedItems.length,
+      averageBlockedDays: blockedItems.length === 0 ? 0 : Number((totalBlockedDays / blockedItems.length).toFixed(2))
+    };
+  }
+
+  private buildBlockedRateByPeriod(flowItems: FlowItem[], startDate: string, endDate: string, period: 'week' | 'month') {
+    const buckets = this.getPeriodBuckets(startDate, endDate, period);
+
+    return Object.fromEntries(
+      buckets.map((bucket) => {
+        const activeItems = flowItems.filter((item) => this.itemOverlapsBucket(item, bucket.startAt, bucket.endAt));
+        const blockedItems = activeItems.filter((item) => this.getBlockedOverlapDays(item, bucket.startAt, bucket.endAt) > 0);
+        const value = activeItems.length === 0 ? 0 : Number(((blockedItems.length / activeItems.length) * 100).toFixed(2));
+        return [bucket.label, value];
+      })
+    );
+  }
+
+  private buildBlockedTimeByPeriod(flowItems: FlowItem[], startDate: string, endDate: string, period: 'week' | 'month') {
+    const buckets = this.getPeriodBuckets(startDate, endDate, period);
+
+    return Object.fromEntries(
+      buckets.map((bucket) => {
+        const activeItems = flowItems.filter((item) => this.itemOverlapsBucket(item, bucket.startAt, bucket.endAt));
+        const totalBlockedDays = activeItems.reduce(
+          (sum, item) => sum + this.getBlockedOverlapDays(item, bucket.startAt, bucket.endAt),
+          0
+        );
+        const value = activeItems.length === 0 ? 0 : Number((totalBlockedDays / activeItems.length).toFixed(2));
+        return [bucket.label, value];
+      })
+    );
+  }
+
   private parseStatuses(value: string | undefined, defaults: string[]) {
     const parsed = (value ?? '')
       .split(/\r?\n|,|;/)
@@ -796,9 +1061,9 @@ export class MetricsService {
     return parsed.length > 0 ? parsed : defaults;
   }
 
-  private buildCfdSeries(flowItems: FlowItem[], startDate: string, endDate: string) {
+  private buildCfdSeries(flowItems: FlowItem[], startDate: string, endDate: string, statuses: string[]) {
     const weeks = this.getWeekSeries(startDate, endDate);
-    const statuses = [
+    const defaultStatuses = [
       'Done',
       'Em Deploy para Produção',
       'Em Testes',
@@ -854,6 +1119,11 @@ export class MetricsService {
     while (current < end) {
       dates.push(current.toISOString().slice(0, 10));
       current.setUTCDate(current.getUTCDate() + 7);
+    }
+
+    const endLabel = end.toISOString().slice(0, 10);
+    if (dates.length === 0 || dates[dates.length - 1] !== endLabel) {
+      dates.push(endLabel);
     }
 
     return dates;
@@ -1037,7 +1307,7 @@ export class MetricsService {
 
         const endDate = new Date(endAt);
         const rangeStart = new Date(`${input.startDate}T00:00:00.000Z`);
-        const rangeEnd = new Date(`${input.endDate}T00:00:00.000Z`);
+        const rangeEnd = new Date(`${this.getExclusiveEndDate(input.endDate)}T00:00:00.000Z`);
 
         if (!(endDate >= rangeStart && endDate < rangeEnd)) {
           return null;
@@ -1091,6 +1361,382 @@ export class MetricsService {
 
   private getIssueSeed(key: string) {
     return key.split('').reduce((acc, char) => acc + char.charCodeAt(0), 0);
+  }
+
+  private buildJiraStatusTransitions(
+    changelog: Awaited<ReturnType<JiraService['getIssueChangelog']>>,
+    initialStatus: string,
+    initialAt: string,
+    finalStatus?: string,
+    finalAt?: string
+  ) {
+    const transitions: Array<{ status: string; at: string }> = [{
+      status: initialStatus,
+      at: initialAt
+    }];
+
+    [...changelog]
+      .sort((a, b) => (a.created ?? '').localeCompare(b.created ?? ''))
+      .forEach((history) => {
+        (history.items ?? []).forEach((item) => {
+          if (item.field !== 'status' || !history.created) {
+            return;
+          }
+
+          const nextStatus = item.toString ?? item.to;
+          if (!nextStatus) {
+            return;
+          }
+
+          if (new Date(history.created).getTime() < new Date(initialAt).getTime()) {
+            return;
+          }
+
+          const lastTransition = transitions[transitions.length - 1];
+          if (lastTransition?.status === nextStatus) {
+            return;
+          }
+
+          transitions.push({
+            status: nextStatus,
+            at: history.created
+          });
+        });
+      });
+
+    if (finalStatus && finalAt) {
+      const lastTransition = transitions[transitions.length - 1];
+      if (!lastTransition || lastTransition.status !== finalStatus || lastTransition.at !== finalAt) {
+        transitions.push({
+          status: finalStatus,
+          at: finalAt
+        });
+      }
+    }
+
+    return transitions;
+  }
+
+  private getInitialStatusFromChangelog(
+    changelog: Awaited<ReturnType<JiraService['getIssueChangelog']>>,
+    fallbackStatus: string
+  ) {
+    for (const history of [...changelog].sort((a, b) => (a.created ?? '').localeCompare(b.created ?? ''))) {
+      for (const item of history.items ?? []) {
+        if (item.field !== 'status') {
+          continue;
+        }
+
+        const previousStatus = item.fromString ?? item.from;
+        if (previousStatus) {
+          return previousStatus;
+        }
+      }
+    }
+
+    return fallbackStatus;
+  }
+
+  private getCurrentColumnEnteredAt(
+    transitions: Array<{ status: string; at: string }>,
+    currentStatus: string,
+    fallbackAt: string
+  ) {
+    const match = [...transitions]
+      .reverse()
+      .find((transition) => transition.status === currentStatus);
+
+    return match?.at ?? fallbackAt;
+  }
+
+  private async getBoardStatusOrder(
+    input: FlowDashboardInput,
+    jiraConfig: JiraRuntimeConfig,
+    flowItems: FlowItem[]
+  ) {
+    const boardId = input.boardId ?? env.LEAD_TIME_BOARD_ID;
+
+    if (!boardId) {
+      return this.getDefaultCfdStatuses(flowItems);
+    }
+
+    try {
+      const boardColumns = await this.jiraService.getBoardColumns(boardId, jiraConfig);
+      const discoveredStatuses = this.getUniqueSorted(flowItems.map((item) => item.currentColumn));
+      const normalizedColumns = boardColumns.filter((column) => column.length > 0 && column !== 'Done');
+      const extras = discoveredStatuses.filter((status) => !normalizedColumns.includes(status) && status !== 'Done');
+      const hasDone = discoveredStatuses.includes('Done');
+
+      return [
+        ...(hasDone ? ['Done'] : []),
+        ...normalizedColumns.reverse(),
+        ...extras.reverse()
+      ];
+    } catch {
+      return this.getDefaultCfdStatuses(flowItems);
+    }
+  }
+
+  private getDefaultCfdStatuses(flowItems: FlowItem[]) {
+    const preferredOrder = [
+      'Done',
+      'Em Deploy para ProduÃ§Ã£o',
+      'Em Testes',
+      'Pronto para Testes',
+      'Em Desenvolvimento',
+      'Pronto para Desenvolvimento'
+    ];
+    const discoveredStatuses = this.getUniqueSorted([
+      ...flowItems.map((item) => item.currentColumn),
+      ...flowItems.flatMap((item) => item.transitions.map((transition) => transition.status))
+    ]);
+
+    return [
+      ...preferredOrder.filter((status) => discoveredStatuses.includes(status)),
+      ...discoveredStatuses.filter((status) => !preferredOrder.includes(status))
+    ];
+  }
+
+  private getEffectiveRangeEndDate(endDate: string) {
+    const requestedEnd = new Date(`${endDate}T00:00:00.000Z`);
+    const today = new Date();
+    const todayUtc = new Date(Date.UTC(today.getUTCFullYear(), today.getUTCMonth(), today.getUTCDate()));
+    const effectiveEnd = requestedEnd.getTime() > todayUtc.getTime() ? todayUtc : requestedEnd;
+    return effectiveEnd.toISOString().slice(0, 10);
+  }
+
+  private getExclusiveEndDate(endDate: string) {
+    return this.shiftIsoDate(`${endDate}T00:00:00.000Z`, 1).slice(0, 10);
+  }
+
+  private getPeriodBuckets(startDate: string, endDate: string, period: 'week' | 'month') {
+    const buckets: Array<{ label: string; startAt: string; endAt: string }> = [];
+    const current = new Date(`${startDate}T00:00:00.000Z`);
+    const end = new Date(`${endDate}T00:00:00.000Z`);
+
+    while (current < end) {
+      const bucketStart = new Date(current);
+      const bucketEnd = new Date(current);
+      if (period === 'month') {
+        bucketEnd.setUTCMonth(bucketEnd.getUTCMonth() + 1);
+      } else {
+        bucketEnd.setUTCDate(bucketEnd.getUTCDate() + 7);
+      }
+
+      buckets.push({
+        label: period === 'month'
+          ? bucketStart.toISOString().slice(0, 7)
+          : bucketStart.toISOString().slice(0, 10),
+        startAt: bucketStart.toISOString(),
+        endAt: bucketEnd.toISOString()
+      });
+
+      current.setTime(bucketEnd.getTime());
+    }
+
+    return buckets;
+  }
+
+  private itemOverlapsBucket(item: FlowItem, bucketStartAt: string, bucketEndAt: string) {
+    const itemStart = new Date(item.createdAt).getTime();
+    const itemEnd = new Date(item.resolvedAt ?? new Date().toISOString()).getTime();
+    const bucketStart = new Date(bucketStartAt).getTime();
+    const bucketEnd = new Date(bucketEndAt).getTime();
+
+    return itemStart < bucketEnd && itemEnd >= bucketStart;
+  }
+
+  private getBlockedOverlapDays(item: FlowItem, bucketStartAt: string, bucketEndAt: string) {
+    const bucketStart = new Date(bucketStartAt).getTime();
+    const bucketEnd = new Date(bucketEndAt).getTime();
+
+    return Number(item.blockedPeriods.reduce((sum, period) => {
+      const periodStart = new Date(period.startAt).getTime();
+      const periodEnd = new Date(period.endAt).getTime();
+      const overlapStart = Math.max(periodStart, bucketStart);
+      const overlapEnd = Math.min(periodEnd, bucketEnd);
+
+      if (overlapEnd <= overlapStart) {
+        return sum;
+      }
+
+      return sum + ((overlapEnd - overlapStart) / (1000 * 60 * 60 * 24));
+    }, 0).toFixed(2));
+  }
+
+  private getDateRangeOverlapDays(startAt: string, endAt: string, rangeStartAt: string, rangeEndAt: string) {
+    const start = new Date(startAt).getTime();
+    const end = new Date(endAt).getTime();
+    const rangeStart = new Date(rangeStartAt).getTime();
+    const rangeEnd = new Date(rangeEndAt).getTime();
+    const overlapStart = Math.max(start, rangeStart);
+    const overlapEnd = Math.min(end, rangeEnd);
+
+    if (overlapEnd <= overlapStart) {
+      return 0;
+    }
+
+    return Number((((overlapEnd - overlapStart) / (1000 * 60 * 60 * 24))).toFixed(2));
+  }
+
+  private isItemCurrentlyBlocked(item: FlowItem, referenceNow: string) {
+    if (item.isDone) {
+      return false;
+    }
+
+    return item.blockedPeriods.some((period) => {
+      const diff = Math.abs(new Date(period.endAt).getTime() - new Date(referenceNow).getTime());
+      return diff <= 60_000;
+    });
+  }
+
+  private getCurrentBlockedDays(item: FlowItem, referenceNow: string) {
+    const currentPeriod = [...item.blockedPeriods]
+      .reverse()
+      .find((period) => Math.abs(new Date(period.endAt).getTime() - new Date(referenceNow).getTime()) <= 60_000);
+
+    if (!currentPeriod) {
+      return 0;
+    }
+
+    return this.diffInDays(currentPeriod.startAt, referenceNow);
+  }
+
+  private withBlockedMetrics(item: FlowItem) {
+    const blockedDays = item.blockedPeriods.reduce((sum, period) => {
+      if (!period.endAt) {
+        return sum;
+      }
+
+      return sum + Math.max(0, this.diffInDays(period.startAt, period.endAt));
+    }, 0);
+
+    return {
+      ...item,
+      blockedDays: Number(blockedDays.toFixed(2)),
+      isBlocked: item.blockedPeriods.some((period) => !period.endAt)
+    } satisfies FlowItem;
+  }
+
+  private buildMockBlockedPeriods(
+    startAt: string,
+    endAt: string,
+    issueKey: string,
+    currentColumn?: string,
+    currentColumnEnteredAt?: string
+  ) {
+    const seed = this.getIssueSeed(issueKey);
+    const canBeBlocked = seed % 3 === 0 || seed % 5 === 0;
+
+    if (!canBeBlocked) {
+      return [];
+    }
+
+    if (currentColumn && this.isBlockedStatus(currentColumn)) {
+      return [{
+        startAt: currentColumnEnteredAt ?? startAt,
+        endAt: ''
+      }].filter((period) => period.startAt.length > 0);
+    }
+
+    const blockedStart = this.shiftIsoDate(startAt, 1 + (seed % 2));
+    const blockedEnd = this.shiftIsoDate(blockedStart, 1 + (seed % 3));
+
+    if (!endAt || new Date(blockedEnd).getTime() >= new Date(endAt).getTime()) {
+      return [];
+    }
+
+    return [{ startAt: blockedStart, endAt: blockedEnd }];
+  }
+
+  private extractBlockedPeriods(
+    changelog: Awaited<ReturnType<JiraService['getIssueChangelog']>>,
+    fallbackEndAt: string,
+    currentStatus: string,
+    currentColumnEnteredAt: string
+  ) {
+    const sorted = [...changelog].sort((a, b) => (a.created ?? '').localeCompare(b.created ?? ''));
+    const periods: Array<{ startAt: string; endAt: string }> = [];
+    let flaggedBlocked = false;
+    let statusBlocked = false;
+    let openStartAt: string | null = null;
+
+    sorted.forEach((history) => {
+      const createdAt = history.created ?? fallbackEndAt;
+      let nextFlaggedBlocked = flaggedBlocked;
+      let nextStatusBlocked = statusBlocked;
+
+      (history.items ?? []).forEach((item) => {
+        const flaggedState = this.getBlockedFieldState(item.field, item.toString, item.to);
+        if (flaggedState !== null) {
+          nextFlaggedBlocked = flaggedState;
+        }
+
+        if (item.field === 'status') {
+          const statusState = this.getBlockedStatusState(item.toString ?? item.to ?? null);
+          if (statusState !== null) {
+            nextStatusBlocked = statusState;
+          } else {
+            nextStatusBlocked = false;
+          }
+        }
+      });
+
+      const wasBlocked = flaggedBlocked || statusBlocked;
+      const isBlocked = nextFlaggedBlocked || nextStatusBlocked;
+
+      if (!wasBlocked && isBlocked) {
+        openStartAt = createdAt;
+      }
+
+      if (wasBlocked && !isBlocked && openStartAt) {
+        periods.push({ startAt: openStartAt, endAt: createdAt });
+        openStartAt = null;
+      }
+
+      flaggedBlocked = nextFlaggedBlocked;
+      statusBlocked = nextStatusBlocked;
+    });
+
+    const currentStateBlocked = flaggedBlocked || statusBlocked || this.isBlockedStatus(currentStatus);
+    if (currentStateBlocked) {
+      const startAt = openStartAt ?? currentColumnEnteredAt;
+      if (startAt) {
+        periods.push({ startAt, endAt: fallbackEndAt });
+      }
+    }
+
+    return periods.filter((period) => new Date(period.endAt).getTime() > new Date(period.startAt).getTime());
+  }
+
+  private getBlockedFieldState(field: string | undefined, toString: string | null | undefined, to: string | null | undefined) {
+    const normalizedField = String(field ?? '').toLowerCase();
+    if (!/(flag|impediment|block)/.test(normalizedField)) {
+      return null;
+    }
+
+    const targetValue = String(toString ?? to ?? '').trim().toLowerCase();
+    if (!targetValue) {
+      return false;
+    }
+
+    if (/(impediment|blocked|flag|true|yes|sim)/.test(targetValue)) {
+      return true;
+    }
+
+    return null;
+  }
+
+  private getBlockedStatusState(status: string | null) {
+    if (!status) {
+      return null;
+    }
+
+    return this.isBlockedStatus(status);
+  }
+
+  private isBlockedStatus(status: string) {
+    return /(blocked|bloquead|impediment|on hold|waiting|aguardando|dependenc)/i.test(status);
   }
 
   private diffInDays(startAt: string, endAt: string) {

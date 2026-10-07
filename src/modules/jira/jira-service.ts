@@ -160,22 +160,7 @@ export class JiraService {
   }
 
   async getBoardColumnStatuses(boardId: number, columnName: string, config?: JiraRuntimeConfig): Promise<string[]> {
-    const resolvedConfig = this.resolveConfig(config);
-    const auth = Buffer.from(`${resolvedConfig.email}:${resolvedConfig.apiToken}`).toString('base64');
-    const response = await fetch(`${resolvedConfig.host}/rest/agile/1.0/board/${boardId}/configuration`, {
-      method: 'GET',
-      headers: {
-        Accept: 'application/json',
-        Authorization: `Basic ${auth}`
-      }
-    });
-
-    if (!response.ok) {
-      const errorBody = await response.text();
-      throw new Error(`Jira board configuration failed with ${response.status}: ${errorBody}`);
-    }
-
-    const data = (await response.json()) as JiraBoardConfigurationResponse;
+    const data = await this.getBoardConfiguration(boardId, config);
     const column = (data.columnConfig?.columns ?? []).find(
       (item) => item.name?.toLowerCase() === columnName.toLowerCase()
     );
@@ -189,6 +174,13 @@ export class JiraService {
 
         return refs;
       });
+  }
+
+  async getBoardColumns(boardId: number, config?: JiraRuntimeConfig): Promise<string[]> {
+    const data = await this.getBoardConfiguration(boardId, config);
+    return (data.columnConfig?.columns ?? [])
+      .map((column) => String(column.name ?? '').trim())
+      .filter((name) => name.length > 0);
   }
 
   async getIssueChangelog(issueKey: string, config?: JiraRuntimeConfig) {
@@ -219,6 +211,25 @@ export class JiraService {
     }
 
     return values;
+  }
+
+  private async getBoardConfiguration(boardId: number, config?: JiraRuntimeConfig) {
+    const resolvedConfig = this.resolveConfig(config);
+    const auth = Buffer.from(`${resolvedConfig.email}:${resolvedConfig.apiToken}`).toString('base64');
+    const response = await fetch(`${resolvedConfig.host}/rest/agile/1.0/board/${boardId}/configuration`, {
+      method: 'GET',
+      headers: {
+        Accept: 'application/json',
+        Authorization: `Basic ${auth}`
+      }
+    });
+
+    if (!response.ok) {
+      const errorBody = await response.text();
+      throw new Error(`Jira board configuration failed with ${response.status}: ${errorBody}`);
+    }
+
+    return (await response.json()) as JiraBoardConfigurationResponse;
   }
 
   private resolveConfig(config?: JiraRuntimeConfig) {

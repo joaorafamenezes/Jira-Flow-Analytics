@@ -3,399 +3,914 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Jira Flow Analytics UI</title>
+    <title>Jira Flow Analytics | Painel de Fluxo e Métricas de Entrega</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet" />
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css" />
     <link rel="stylesheet" href="./styles.css" />
   </head>
   <body>
     <div class="app-shell">
+      <!-- SIDEBAR NAVEGAÇÃO -->
       <aside class="sidebar">
-        <div class="brand">
-          <div class="brand-mark">JFA</div>
-          <div>
-            <p class="eyebrow">Flow Intelligence</p>
-            <h1>Jira Flow Analytics</h1>
+        <div class="sidebar-scroll">
+          <div class="brand">
+            <div class="brand-header">
+              <img
+                class="brand-logo"
+                src="./assets/logos/jira-flow-analytics-logo-full-transparent.png"
+                alt="Jira Flow Analytics"
+              />
+              <span class="brand-badge">v0.1</span>
+            </div>
+            <div class="brand-tagline">
+              <span class="brand-dot"></span>
+              <span>Inteligência de Fluxo Ágil</span>
+            </div>
+          </div>
+
+          <div class="sidebar-section">
+            <p class="sidebar-section-title">Navegação Principal</p>
+            <nav class="side-menu" aria-label="Navegação principal">
+              <button class="side-menu-item is-active" data-view-tab="summary" type="button">
+                <span class="side-menu-icon" aria-hidden="true">
+                  <i class="bi bi-grid-1x2-fill"></i>
+                </span>
+                <span class="side-menu-copy">
+                  <strong>Resumo Executivo</strong>
+                  <small>Métricas chave e visão macro</small>
+                </span>
+                <span class="side-menu-indicator"></span>
+              </button>
+              <button class="side-menu-item" data-view-tab="analytics" type="button">
+                <span class="side-menu-icon" aria-hidden="true">
+                  <i class="bi bi-graph-up-arrow"></i>
+                </span>
+                <span class="side-menu-copy">
+                  <strong>Painel Analítico</strong>
+                  <small>CFD, lead time, throughput</small>
+                </span>
+                <span class="side-menu-indicator"></span>
+              </button>
+              <button class="side-menu-item" data-view-tab="settings" type="button">
+                <span class="side-menu-icon" aria-hidden="true">
+                  <i class="bi bi-sliders2-vertical"></i>
+                </span>
+                <span class="side-menu-copy">
+                  <strong>Configurações</strong>
+                  <small>Jira, parâmetros e regras</small>
+                </span>
+                <span class="side-menu-indicator"></span>
+              </button>
+            </nav>
+          </div>
+
+          <div class="sidebar-section sidebar-section-muted">
+            <p class="sidebar-section-title">Contexto Operacional</p>
+            <div class="sidebar-note">
+              <div class="sidebar-note-header">
+                <i class="bi bi-lightning-charge-fill note-icon"></i>
+                <strong>Análise Contínua</strong>
+              </div>
+              <p>Métricas calculadas a partir do histórico de status e transições de ciclo do Jira Software.</p>
+            </div>
+          </div>
+
+          <div class="sidebar-footer">
+            <div class="sidebar-system-pill">
+              <span class="pulse-indicator"></span>
+              <span>Sistema Operacional</span>
+            </div>
           </div>
         </div>
-
-        <nav class="side-menu" aria-label="Navegacao principal">
-          <button class="side-menu-item is-active" data-view-tab="dashboard" type="button">Dashboard</button>
-          <button class="side-menu-item" data-view-tab="settings" type="button">Configuracoes</button>
-        </nav>
       </aside>
 
+      <!-- ÁREA PRINCIPAL -->
       <main class="content">
-        <div id="chartModal" class="chart-modal" hidden>
-          <div id="chartModalBackdrop" class="chart-modal-backdrop"></div>
-          <section class="chart-modal-dialog" role="dialog" aria-modal="true" aria-labelledby="chartModalTitle">
-            <div class="chart-modal-header">
-              <div>
-                <p class="eyebrow">Visualizacao expandida</p>
-                <h2 id="chartModalTitle">Grafico</h2>
-                <p id="chartModalDescription" class="hero-copy"></p>
-              </div>
-              <button id="chartModalClose" class="secondary chart-modal-close" type="button" aria-label="Fechar modal" title="Fechar">
-                <span aria-hidden="true">&times;</span>
-              </button>
+        <!-- TOPBAR ELEVADA -->
+        <header class="topbar">
+          <div class="topbar-left">
+            <div class="view-breadcrumb">
+              <span class="breadcrumb-item">Jira Flow</span>
+              <i class="bi bi-chevron-right breadcrumb-separator"></i>
+              <span id="activeViewTitle" class="breadcrumb-current">Resumo Executivo</span>
             </div>
-            <div id="chartModalMount" class="chart-modal-mount"></div>
+          </div>
+
+          <div class="topbar-center">
+            <!-- PRESETS RÁPIDOS DE DATA -->
+            <div class="date-presets" role="group" aria-label="Presets rápidos de período">
+              <button class="preset-btn" data-date-preset="30d" type="button" title="Últimos 30 dias">30D</button>
+              <button class="preset-btn" data-date-preset="90d" type="button" title="Últimos 90 dias">90D</button>
+              <button class="preset-btn is-active" data-date-preset="year" type="button" title="Ano de 2026">2026</button>
+              <button class="preset-btn" data-date-preset="all" type="button" title="Todo o período">Tudo</button>
+            </div>
+          </div>
+
+          <div class="topbar-right">
+            <div class="connection-status-shell">
+              <span class="status-indicator-dot"></span>
+              <span id="connectionStatus" class="connection-status-text">Aguardando consulta</span>
+            </div>
+
+            <button id="filterToggleBtn" class="topbar-btn filter-toggle-btn is-open" type="button" title="Expandir ou recolher painel de filtros">
+              <i class="bi bi-funnel-fill"></i>
+              <span>Filtros</span>
+            </button>
+
+            <button id="quickThemeToggle" class="topbar-btn icon-btn" type="button" title="Alternar tema claro/escuro" aria-label="Alternar tema">
+              <i class="bi bi-moon-stars-fill theme-icon-dark"></i>
+              <i class="bi bi-sun-fill theme-icon-light"></i>
+            </button>
+
+            <button id="exportButton" class="topbar-btn secondary-btn" type="button" title="Exportar visão como imagem">
+              <i class="bi bi-camera"></i>
+              <span>Exportar</span>
+            </button>
+
+            <button id="refreshButton" class="topbar-btn primary-btn" type="button">
+              <i class="bi bi-arrow-clockwise refresh-icon"></i>
+              <span id="refreshButtonLabel">Atualizar painel</span>
+            </button>
+          </div>
+        </header>
+
+        <div class="content-scroll">
+          <!-- MODAL DE EXPANSÃO DE GRÁFICOS -->
+          <div id="chartModal" class="chart-modal" hidden>
+            <div id="chartModalBackdrop" class="chart-modal-backdrop"></div>
+            <section class="chart-modal-dialog" role="dialog" aria-modal="true" aria-labelledby="chartModalTitle">
+              <div class="chart-modal-header">
+                <div>
+                  <p class="eyebrow">Visualização Expandida</p>
+                  <h2 id="chartModalTitle">Gráfico</h2>
+                  <p id="chartModalDescription" class="hero-copy"></p>
+                </div>
+                <button id="chartModalClose" class="chart-modal-close" type="button" aria-label="Fechar modal" title="Fechar">
+                  <i class="bi bi-x-lg"></i>
+                </button>
+              </div>
+              <div id="chartModalControls" class="chart-modal-controls" hidden></div>
+              <div id="chartModalMount" class="chart-modal-mount"></div>
+            </section>
+          </div>
+
+          <!-- MODAL DE INFORMAÇÕES -->
+          <div id="infoModal" class="chart-modal" hidden>
+            <div id="infoModalBackdrop" class="chart-modal-backdrop"></div>
+            <section class="chart-modal-dialog info-modal-dialog" role="dialog" aria-modal="true" aria-labelledby="infoModalTitle">
+              <div class="chart-modal-header">
+                <div>
+                  <p class="eyebrow">Entendimento do Indicador</p>
+                  <h2 id="infoModalTitle">Faixas do Aging WIP</h2>
+                </div>
+                <button id="infoModalClose" class="chart-modal-close" type="button" aria-label="Fechar modal" title="Fechar">
+                  <i class="bi bi-x-lg"></i>
+                </button>
+              </div>
+              <div id="infoModalBody" class="info-modal-body"></div>
+            </section>
+          </div>
+
+          <!-- PAINEL DE FILTROS COLAPSÁVEL -->
+          <section id="filtersToolbar" class="dashboard-toolbar is-expanded">
+            <div class="panel filters-panel">
+              <div class="panel-title-row">
+                <div class="filters-header-info">
+                  <div class="filters-title-wrap">
+                    <i class="bi bi-sliders filters-title-icon"></i>
+                    <h2>Filtros e Segmentações</h2>
+                  </div>
+                  <p class="section-copy">Refine o período temporal, fonte de dados e atributos de demandas para calibrar a análise.</p>
+                </div>
+                <div class="filters-header-actions">
+                  <button id="resetButton" class="link-button" type="button">
+                    <i class="bi bi-arrow-counterclockwise"></i>
+                    <span>Restaurar padrões</span>
+                  </button>
+                </div>
+              </div>
+
+              <div class="filters-panel-grid">
+                <!-- GRUPO: PERÍODO E ORIGEM -->
+                <div class="filters-panel-group">
+                  <div class="filter-group-header">
+                    <i class="bi bi-calendar3"></i>
+                    <h3>Período & Origem</h3>
+                  </div>
+                  <div class="compact-grid filters-compact-grid filters-compact-grid-period">
+                    <label class="custom-field">
+                      <span class="field-label">Fonte de Dados</span>
+                      <div class="select-shell">
+                        <select id="source">
+                          <option value="mock">Simulação (Mock)</option>
+                          <option value="jira">Jira Software (API)</option>
+                        </select>
+                        <i class="bi bi-chevron-down select-arrow"></i>
+                      </div>
+                    </label>
+                    <label class="custom-field date-field">
+                      <span class="field-label">Data Inicial (De)</span>
+                      <span class="date-input-shell">
+                        <input id="startDate" type="date" value="2026-01-01" />
+                        <button class="date-picker-trigger" data-date-target="startDate" type="button" aria-label="Selecionar data inicial" title="Abrir calendário">
+                          <i class="bi bi-calendar-event"></i>
+                        </button>
+                      </span>
+                    </label>
+                    <label class="custom-field date-field">
+                      <span class="field-label">Data Final (Até)</span>
+                      <span class="date-input-shell">
+                        <input id="endDate" type="date" />
+                        <button class="date-picker-trigger" data-date-target="endDate" type="button" aria-label="Selecionar data final" title="Abrir calendário">
+                          <i class="bi bi-calendar-event"></i>
+                        </button>
+                      </span>
+                    </label>
+                  </div>
+                </div>
+
+                <!-- GRUPO: RECORTES DE DEMANDA -->
+                <div class="filters-panel-group">
+                  <div class="filter-group-header">
+                    <i class="bi bi-funnel"></i>
+                    <h3>Recortes e Segmentações</h3>
+                  </div>
+                  <div class="compact-grid filters-compact-grid">
+                    <label class="custom-field">
+                      <span class="field-label">Tipo de Item</span>
+                      <div class="select-shell">
+                        <select id="issueType">
+                          <option value="">Todos os tipos</option>
+                        </select>
+                        <i class="bi bi-chevron-down select-arrow"></i>
+                      </div>
+                    </label>
+                    <label class="custom-field">
+                      <span class="field-label">Squad / Time</span>
+                      <div class="select-shell">
+                        <select id="squad">
+                          <option value="">Todas as squads</option>
+                        </select>
+                        <i class="bi bi-chevron-down select-arrow"></i>
+                      </div>
+                    </label>
+                    <label class="custom-field">
+                      <span class="field-label">Responsável</span>
+                      <div class="select-shell">
+                        <select id="assignee">
+                          <option value="">Todos os responsáveis</option>
+                        </select>
+                        <i class="bi bi-chevron-down select-arrow"></i>
+                      </div>
+                    </label>
+                    <label class="custom-field">
+                      <span class="field-label">Prioridade</span>
+                      <div class="select-shell">
+                        <select id="priority">
+                          <option value="">Todas as prioridades</option>
+                        </select>
+                        <i class="bi bi-chevron-down select-arrow"></i>
+                      </div>
+                    </label>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <!-- BARRA DE CHIPS RESUMO DE FILTROS ATIVOS -->
+            <div id="filterSummaryBar" class="filter-summary-bar">
+              <div class="filter-summary-label">
+                <i class="bi bi-check2-all"></i>
+                <span>Filtros aplicados:</span>
+              </div>
+              <div id="filterChipsWrap" class="filter-chips-wrap">
+                <span class="filter-chip"><strong id="chipSource">Mock</strong></span>
+                <span class="filter-chip"><span id="chipPeriod">2026-01-01 → Hoje</span></span>
+              </div>
+            </div>
+          </section>
+
+          <!-- ABA 1: RESUMO EXECUTIVO -->
+          <section class="view-panel is-active summary-view" data-view-panel="summary">
+            <!-- HERO BANNER EXECUTIVO -->
+            <section class="hero summary-hero">
+              <div class="hero-content">
+                <div class="hero-badge-tag">
+                  <i class="bi bi-shield-check"></i>
+                  <span>Visão Consolidada de Engenharia</span>
+                </div>
+                <h2 id="heroTitle">Resumo Executivo do Fluxo</h2>
+                <p class="hero-copy" id="heroCopy">
+                  Acompanhe os indicadores sintéticos do período para entender capacidade de entrega, previsibilidade estatística, gargalos e liquidez em uma única leitura.
+                </p>
+              </div>
+              <div class="hero-quick-kpis">
+                <div class="hero-kpi-pill">
+                  <span class="hero-kpi-pill-label">Período</span>
+                  <strong id="summaryPeriodLabel" class="hero-kpi-pill-val">período analisado</strong>
+                </div>
+              </div>
+            </section>
+
+            <!-- STAT CARDS (GRID MODERNO DE 9 KPIS EM 3 CLUSTERS) -->
+            <section class="kpi-clusters">
+              <!-- CLUSTER 1: VOLUME & CAPACIDADE -->
+              <div class="kpi-cluster">
+                <div class="kpi-cluster-header">
+                  <span class="kpi-cluster-dot cluster-dot-blue"></span>
+                  <span class="kpi-cluster-title">Volume & Capacidade</span>
+                </div>
+                <div class="kpi-cluster-grid">
+                  <article class="stat-card stat-card-highlight stat-card-success">
+                    <div class="stat-card-top">
+                      <span class="stat-card-title">Concluídos</span>
+                      <span class="stat-card-icon icon-success"><i class="bi bi-check-circle-fill"></i></span>
+                    </div>
+                    <strong id="completedCount" class="stat-card-value">-</strong>
+                    <div class="stat-card-footer">
+                      <span class="stat-badge badge-success"><i class="bi bi-arrow-up-short"></i> Entregas</span>
+                      <small class="stat-card-desc">itens concluídos no período</small>
+                    </div>
+                  </article>
+
+                  <article class="stat-card stat-card-highlight stat-card-primary">
+                    <div class="stat-card-top">
+                      <span class="stat-card-title">WIP Ativo</span>
+                      <span class="stat-card-icon icon-primary"><i class="bi bi-kanban-fill"></i></span>
+                    </div>
+                    <strong id="wipCount" class="stat-card-value">-</strong>
+                    <div class="stat-card-footer">
+                      <span class="stat-badge badge-primary">Em andamento</span>
+                      <small class="stat-card-desc">itens ativos no fluxo</small>
+                    </div>
+                  </article>
+
+                  <article class="stat-card">
+                    <div class="stat-card-top">
+                      <span class="stat-card-title">Total Demandas</span>
+                      <span class="stat-card-icon"><i class="bi bi-layers-fill"></i></span>
+                    </div>
+                    <strong id="totalCount" class="stat-card-value">-</strong>
+                    <div class="stat-card-footer">
+                      <span class="stat-badge badge-neutral">Escopo</span>
+                      <small class="stat-card-desc">itens no filtro ativo</small>
+                    </div>
+                  </article>
+                </div>
+              </div>
+
+              <!-- CLUSTER 2: VELOCIDADE & PREVISIBILIDADE -->
+              <div class="kpi-cluster">
+                <div class="kpi-cluster-header">
+                  <span class="kpi-cluster-dot cluster-dot-purple"></span>
+                  <span class="kpi-cluster-title">Velocidade & Previsibilidade</span>
+                </div>
+                <div class="kpi-cluster-grid">
+                  <article class="stat-card stat-card-dark">
+                    <div class="stat-card-top">
+                      <span class="stat-card-title">Lead Time P50</span>
+                      <span class="stat-card-icon icon-accent"><i class="bi bi-speedometer"></i></span>
+                    </div>
+                    <strong id="leadTimeP50" class="stat-card-value">-</strong>
+                    <div class="stat-card-footer">
+                      <span class="stat-badge badge-confidence-50">50% Confiança</span>
+                      <small class="stat-card-desc">metade das entregas</small>
+                    </div>
+                  </article>
+
+                  <article class="stat-card stat-card-dark">
+                    <div class="stat-card-top">
+                      <span class="stat-card-title">Lead Time P85</span>
+                      <span class="stat-card-icon icon-warning"><i class="bi bi-bullseye"></i></span>
+                    </div>
+                    <strong id="leadTimeP85" class="stat-card-value">-</strong>
+                    <div class="stat-card-footer">
+                      <span class="stat-badge badge-confidence-85">85% Confiança</span>
+                      <small class="stat-card-desc">meta SLA recomendada</small>
+                    </div>
+                  </article>
+
+                  <article class="stat-card stat-card-dark">
+                    <div class="stat-card-top">
+                      <span class="stat-card-title">Lead Time Médio</span>
+                      <span class="stat-card-icon"><i class="bi bi-clock-history"></i></span>
+                    </div>
+                    <strong id="averageLeadTimeDays" class="stat-card-value">-</strong>
+                    <div class="stat-card-footer">
+                      <span class="stat-badge badge-neutral">Média</span>
+                      <small class="stat-card-desc">período selecionado</small>
+                    </div>
+                  </article>
+                </div>
+              </div>
+
+              <!-- CLUSTER 3: ATRITO & EFICIÊNCIA -->
+              <div class="kpi-cluster">
+                <div class="kpi-cluster-header">
+                  <span class="kpi-cluster-dot cluster-dot-teal"></span>
+                  <span class="kpi-cluster-title">Qualidade de Fluxo & Impedimentos</span>
+                </div>
+                <div class="kpi-cluster-grid">
+                  <article class="stat-card stat-card-dark">
+                    <div class="stat-card-top">
+                      <span class="stat-card-title">Eficiência de Fluxo</span>
+                      <span class="stat-card-icon icon-teal"><i class="bi bi-pie-chart-fill"></i></span>
+                    </div>
+                    <strong id="flowEfficiency" class="stat-card-value">-</strong>
+                    <div class="stat-card-footer">
+                      <span id="flowEfficiencyDetail" class="stat-card-desc">tempo ativo x espera</span>
+                    </div>
+                  </article>
+
+                  <article class="stat-card stat-card-dark">
+                    <div class="stat-card-top">
+                      <span class="stat-card-title">% Itens Bloqueados</span>
+                      <span class="stat-card-icon icon-danger"><i class="bi bi-shield-exclamation"></i></span>
+                    </div>
+                    <strong id="blockedItemsPercent" class="stat-card-value">-</strong>
+                    <div class="stat-card-footer">
+                      <span id="blockedItemsDetail" class="stat-card-desc">WIP bloqueado agora</span>
+                    </div>
+                  </article>
+
+                  <article class="stat-card stat-card-dark">
+                    <div class="stat-card-top">
+                      <span class="stat-card-title">Tempo Bloqueado</span>
+                      <span class="stat-card-icon icon-danger"><i class="bi bi-stopwatch-fill"></i></span>
+                    </div>
+                    <strong id="averageBlockedDays" class="stat-card-value">-</strong>
+                    <div class="stat-card-footer">
+                      <span id="averageBlockedDaysDetail" class="stat-card-desc">média dos bloqueios</span>
+                    </div>
+                  </article>
+                </div>
+              </div>
+            </section>
+
+            <!-- AGING WIP (ACOMPANHAMENTO DE ENVELHECIMENTO) -->
+            <section class="insights-section aging-section">
+              <div class="section-header">
+                <div>
+                  <p class="eyebrow">Acompanhamento Ativo de WIP</p>
+                  <h3>Aging WIP por Atividade</h3>
+                  <p class="section-copy">Itens em andamento ordenados pelo maior tempo de envelhecimento, facilitando desimpedimento e contenção de risco.</p>
+                </div>
+                <div class="aging-header-actions">
+                  <div class="table-search-shell">
+                    <i class="bi bi-search search-icon"></i>
+                    <input id="agingSearchInput" type="text" placeholder="Filtrar por chave, título ou status..." />
+                  </div>
+                  <button class="info-help-btn" data-open-info="aging-wip" type="button" aria-label="Como funciona o Aging WIP?" title="Critérios das faixas de Aging WIP">
+                    <i class="bi bi-info-circle-fill" aria-hidden="true"></i>
+                    <span>Como funciona</span>
+                  </button>
+                </div>
+              </div>
+              <div class="card aging-card">
+                <div id="agingWipTable" class="aging-table-wrap"></div>
+              </div>
+            </section>
+
+            <!-- INSIGHTS AUTOMATIZADOS -->
+            <section class="insights-section">
+              <div class="section-header">
+                <div>
+                  <p class="eyebrow">Diagnóstico Automatizado</p>
+                  <h3>Leituras Automáticas do Sistema</h3>
+                  <p class="section-copy">Identificação de anomalias, variações de liquidez e sugestões de ação de fluxo.</p>
+                </div>
+              </div>
+              <div id="insightsGrid" class="insights-grid"></div>
+            </section>
+          </section>
+
+          <!-- ABA 2: PAINEL ANALÍTICO -->
+          <section class="view-panel" data-view-panel="analytics">
+            <section class="hero">
+              <div>
+                <p class="eyebrow">Análise Visual Aprofundada</p>
+                <h2>Painel Analítico de Fluxo</h2>
+                <p class="hero-copy">
+                  Explore os gráficos do fluxo para identificar tendência, variabilidade, gargalos ocultos, dispersão do lead time e acumulação por etapa.
+                </p>
+              </div>
+            </section>
+
+            <!-- SEÇÃO: SAÚDE DO FLUXO -->
+            <section class="analytics-section">
+              <div class="section-header">
+                <div>
+                  <p class="eyebrow eyebrow-primary">Indicadores de Cadência</p>
+                  <h3>Saúde do Fluxo</h3>
+                  <p class="section-copy">Leituras centrais para avaliar previsibilidade, cadência e estabilidade do sistema ao longo do tempo.</p>
+                </div>
+              </div>
+
+              <section class="dashboard-grid">
+                <!-- CFD -->
+                <article class="card chart-card" data-chart-card="cfd">
+                  <div class="card-header">
+                    <div class="chart-header-copy">
+                      <div class="chart-title-wrap">
+                        <i class="bi bi-layers chart-icon"></i>
+                        <h3>Cumulative Flow Diagram (CFD)</h3>
+                      </div>
+                      <p class="section-copy">Evolução e acúmulo de demandas em cada etapa do fluxo ao longo do tempo.</p>
+                    </div>
+                    <div class="chart-card-actions">
+                      <button class="chart-maximize-button icon-btn" data-maximize-chart="cfd" type="button" aria-label="Maximizar gráfico" title="Expandir visualização">
+                        <i class="bi bi-arrows-angle-expand"></i>
+                      </button>
+                    </div>
+                  </div>
+                  <div id="cfdChart" class="chart-area"></div>
+                  <p class="card-footnote" id="cfdFootnote"></p>
+                </article>
+
+                <!-- LEAD TIME TREND -->
+                <article class="card chart-card" data-chart-card="leadTimeTrend">
+                  <div class="card-header">
+                    <div class="chart-header-copy">
+                      <div class="chart-title-wrap">
+                        <i class="bi bi-graph-up chart-icon"></i>
+                        <h3>Lead Time Comparativo</h3>
+                      </div>
+                      <p class="section-copy" id="leadTimeTrendDescription">Comparativo do lead time médio de entrega por período.</p>
+                    </div>
+                    <div class="chart-card-actions">
+                      <label class="chart-select">
+                        <span class="sr-only">Agrupamento</span>
+                        <div class="select-shell-mini">
+                          <select id="leadTimePeriod">
+                            <option value="month">Por Mês</option>
+                            <option value="week">Por Semana</option>
+                          </select>
+                          <i class="bi bi-chevron-down select-arrow"></i>
+                        </div>
+                      </label>
+                      <button class="chart-maximize-button icon-btn" data-maximize-chart="leadTimeTrend" type="button" aria-label="Maximizar gráfico" title="Expandir visualização">
+                        <i class="bi bi-arrows-angle-expand"></i>
+                      </button>
+                    </div>
+                  </div>
+                  <div id="leadTimeTrendChart" class="chart-area"></div>
+                  <p class="card-footnote" id="leadTimeTrendFootnote"></p>
+                </article>
+              </section>
+
+              <!-- THROUGHPUT RUN CHART -->
+              <section class="dashboard-grid dashboard-grid-single">
+                <article class="card chart-card" data-chart-card="throughput">
+                  <div class="card-header">
+                    <div class="chart-header-copy">
+                      <div class="chart-title-wrap">
+                        <i class="bi bi-bar-chart-line chart-icon"></i>
+                        <h3>Throughput Run Chart</h3>
+                      </div>
+                      <p class="section-copy" id="runChartDescription">Quantidade de demandas concluídas por período.</p>
+                    </div>
+                    <div class="chart-card-actions">
+                      <label class="chart-select">
+                        <span class="sr-only">Agrupamento</span>
+                        <div class="select-shell-mini">
+                          <select id="throughputPeriod">
+                            <option value="week">Por Semana</option>
+                            <option value="month">Por Mês</option>
+                          </select>
+                          <i class="bi bi-chevron-down select-arrow"></i>
+                        </div>
+                      </label>
+                      <button class="chart-maximize-button icon-btn" data-maximize-chart="throughput" type="button" aria-label="Maximizar gráfico" title="Expandir visualização">
+                        <i class="bi bi-arrows-angle-expand"></i>
+                      </button>
+                    </div>
+                  </div>
+                  <div id="runChart" class="chart-area"></div>
+                  <p class="card-footnote" id="runFootnote"></p>
+                </article>
+              </section>
+            </section>
+
+            <!-- SEÇÃO: GARGALOS E IMPEDIMENTOS -->
+            <section class="analytics-section">
+              <div class="section-header">
+                <div>
+                  <p class="eyebrow eyebrow-warning">Foco em Desperdício</p>
+                  <h3>Gargalos e Impedimentos</h3>
+                  <p class="section-copy">Localização de filas de espera, tempo parado e concentração de esforço em cada etapa.</p>
+                </div>
+              </div>
+
+              <section class="dashboard-grid">
+                <!-- STAGE TIME -->
+                <article class="card chart-card" data-chart-card="stageTime">
+                  <div class="card-header">
+                    <div class="chart-header-copy">
+                      <div class="chart-title-wrap">
+                        <i class="bi bi-hourglass-split chart-icon"></i>
+                        <h3>Tempo Médio por Etapa</h3>
+                      </div>
+                      <p class="section-copy">Permanência média das demandas em cada coluna ou status do fluxo.</p>
+                    </div>
+                    <button class="chart-maximize-button icon-btn" data-maximize-chart="stageTime" type="button" aria-label="Maximizar gráfico" title="Expandir visualização">
+                      <i class="bi bi-arrows-angle-expand"></i>
+                    </button>
+                  </div>
+                  <div id="stageTimeChart" class="chart-area"></div>
+                  <p class="card-footnote" id="stageTimeFootnote"></p>
+                </article>
+
+                <!-- BLOCKED RATE -->
+                <article class="card chart-card" data-chart-card="blockedRate">
+                  <div class="card-header">
+                    <div class="chart-header-copy">
+                      <div class="chart-title-wrap">
+                        <i class="bi bi-percent chart-icon"></i>
+                        <h3>% de Itens Bloqueados</h3>
+                      </div>
+                      <p class="section-copy" id="blockedRateDescription">Percentual de itens ativos que sofreram bloqueio no período.</p>
+                    </div>
+                    <button class="chart-maximize-button icon-btn" data-maximize-chart="blockedRate" type="button" aria-label="Maximizar gráfico" title="Expandir visualização">
+                      <i class="bi bi-arrows-angle-expand"></i>
+                    </button>
+                  </div>
+                  <div id="blockedRateChart" class="chart-area"></div>
+                  <p class="card-footnote" id="blockedRateFootnote"></p>
+                </article>
+              </section>
+
+              <!-- BLOCKED TIME -->
+              <section class="dashboard-grid dashboard-grid-single">
+                <article class="card chart-card" data-chart-card="blockedTime">
+                  <div class="card-header">
+                    <div class="chart-header-copy">
+                      <div class="chart-title-wrap">
+                        <i class="bi bi-stopwatch chart-icon"></i>
+                        <h3>Tempo Bloqueado Médio</h3>
+                      </div>
+                      <p class="section-copy" id="blockedTimeDescription">Média de dias de bloqueio sofridos por item ativo.</p>
+                    </div>
+                    <button class="chart-maximize-button icon-btn" data-maximize-chart="blockedTime" type="button" aria-label="Maximizar gráfico" title="Expandir visualização">
+                      <i class="bi bi-arrows-angle-expand"></i>
+                    </button>
+                  </div>
+                  <div id="blockedTimeChart" class="chart-area"></div>
+                  <p class="card-footnote" id="blockedTimeFootnote"></p>
+                </article>
+              </section>
+            </section>
+
+            <!-- SEÇÃO: ANÁLISE AVANÇADA -->
+            <section class="analytics-section">
+              <div class="section-header">
+                <div>
+                  <p class="eyebrow eyebrow-accent">Distribuição Estatística</p>
+                  <h3>Análise Avançada</h3>
+                  <p class="section-copy">Dispersão estatística individual, histograma de frequência e evolução da eficiência de fluxo.</p>
+                </div>
+              </div>
+
+              <section class="dashboard-grid">
+                <!-- FLOW EFFICIENCY TREND -->
+                <article class="card chart-card" data-chart-card="flowEfficiencyTrend">
+                  <div class="card-header">
+                    <div class="chart-header-copy">
+                      <div class="chart-title-wrap">
+                        <i class="bi bi-activity chart-icon"></i>
+                        <h3>Variabilidade da Eficiência</h3>
+                      </div>
+                      <p class="section-copy">Eficiência de fluxo média consolidada mês a mês.</p>
+                    </div>
+                    <button class="chart-maximize-button icon-btn" data-maximize-chart="flowEfficiencyTrend" type="button" aria-label="Maximizar gráfico" title="Expandir visualização">
+                      <i class="bi bi-arrows-angle-expand"></i>
+                    </button>
+                  </div>
+                  <div id="flowEfficiencyTrendChart" class="chart-area"></div>
+                  <p class="card-footnote" id="flowEfficiencyTrendFootnote"></p>
+                </article>
+
+                <!-- SCATTERPLOT -->
+                <article class="card chart-card" data-chart-card="scatter">
+                  <div class="card-header">
+                    <div class="chart-header-copy">
+                      <div class="chart-title-wrap">
+                        <i class="bi bi-dot chart-icon"></i>
+                        <h3>Lead Time Scatterplot</h3>
+                      </div>
+                      <p class="section-copy">Distribuição pontual do lead time por demanda entregue com linhas P50/P85/P95.</p>
+                    </div>
+                    <button class="chart-maximize-button icon-btn" data-maximize-chart="scatter" type="button" aria-label="Maximizar gráfico" title="Expandir visualização">
+                      <i class="bi bi-arrows-angle-expand"></i>
+                    </button>
+                  </div>
+                  <div id="scatterChart" class="chart-area"></div>
+                  <p class="card-footnote" id="scatterFootnote"></p>
+                </article>
+              </section>
+
+              <!-- HISTOGRAMA -->
+              <section class="dashboard-grid dashboard-grid-single">
+                <article class="card chart-card" data-chart-card="histogram">
+                  <div class="card-header">
+                    <div class="chart-header-copy">
+                      <div class="chart-title-wrap">
+                        <i class="bi bi-bar-chart chart-icon"></i>
+                        <h3>Histograma de Lead Time</h3>
+                      </div>
+                      <p class="section-copy">Frequência e cauda longa de tempo de entrega por faixas de dias.</p>
+                    </div>
+                    <button class="chart-maximize-button icon-btn" data-maximize-chart="histogram" type="button" aria-label="Maximizar gráfico" title="Expandir visualização">
+                      <i class="bi bi-arrows-angle-expand"></i>
+                    </button>
+                  </div>
+                  <div id="histogramChart" class="chart-area"></div>
+                  <p class="card-footnote" id="histogramFootnote"></p>
+                </article>
+              </section>
+            </section>
+          </section>
+
+          <!-- ABA 3: CONFIGURAÇÕES -->
+          <section class="view-panel" data-view-panel="settings">
+            <section class="hero">
+              <div>
+                <p class="eyebrow">Parâmetros do Sistema</p>
+                <h2>Configurações e Integração</h2>
+                <p class="hero-copy">
+                  Gerencie as credenciais da API do Jira, regras de início e término de lead time, classificação de etapas e preferências visuais.
+                </p>
+              </div>
+            </section>
+
+            <section class="settings-grid">
+              <!-- INTEGRAÇÃO JIRA -->
+              <article class="panel settings-card">
+                <div class="settings-card-header">
+                  <i class="bi bi-atlassian settings-icon"></i>
+                  <div>
+                    <h2>Integração Jira Software</h2>
+                    <p class="section-copy">Conexão REST com a instância Cloud do Jira.</p>
+                  </div>
+                </div>
+
+                <label class="custom-field">
+                  <span class="field-label">Host do Jira</span>
+                  <input id="jiraHost" type="url" placeholder="https://sua-empresa.atlassian.net" />
+                </label>
+                <label class="custom-field">
+                  <span class="field-label">E-mail da Conta</span>
+                  <input id="jiraEmail" type="email" placeholder="voce@empresa.com" />
+                </label>
+                <label class="custom-field">
+                  <span class="field-label">API Token</span>
+                  <div class="secret-field">
+                    <input id="jiraApiToken" type="password" placeholder="Token de API gerado no Atlassian Account" />
+                    <button id="toggleJiraApiToken" class="secret-toggle" type="button" aria-label="Visualizar API Token por 5 segundos" title="Revelar por 5 segundos">
+                      <i class="bi bi-eye"></i>
+                    </button>
+                  </div>
+                </label>
+                <label class="custom-field">
+                  <span class="field-label">Chave do Projeto (Project Key)</span>
+                  <input id="jiraProjectKey" type="text" placeholder="ex: KAN ou ENG" />
+                </label>
+                <label class="custom-field">
+                  <span class="field-label">JQL Padrão</span>
+                  <textarea id="jiraDefaultJql" rows="3" placeholder="project = KAN ORDER BY updated DESC"></textarea>
+                </label>
+              </article>
+
+              <!-- REGRAS DE LEAD TIME -->
+              <article class="panel settings-card">
+                <div class="settings-card-header">
+                  <i class="bi bi-clock settings-icon"></i>
+                  <div>
+                    <h2>Cálculo de Lead Time</h2>
+                    <p class="section-copy">Defina o marco inicial e final para a medição do tempo de entrega.</p>
+                  </div>
+                </div>
+
+                <label class="custom-field">
+                  <span class="field-label">Modo de Início</span>
+                  <div class="select-shell">
+                    <select id="startMode">
+                      <option value="boardColumn">Coluna do Board (Kanban)</option>
+                      <option value="created">Data de Criação da Demanda</option>
+                      <option value="fieldDate">Campo Customizado de Data</option>
+                    </select>
+                    <i class="bi bi-chevron-down select-arrow"></i>
+                  </div>
+                </label>
+                <label class="custom-field">
+                  <span class="field-label">ID do Board</span>
+                  <div class="select-shell">
+                    <select id="boardId">
+                      <option value="1">1</option>
+                    </select>
+                    <i class="bi bi-chevron-down select-arrow"></i>
+                  </div>
+                </label>
+                <label class="custom-field">
+                  <span class="field-label">Coluna Inicial de Compromisso</span>
+                  <div class="select-shell">
+                    <select id="startColumnName">
+                      <option value="Pronto para Desenvolvimento">Pronto para Desenvolvimento</option>
+                    </select>
+                    <i class="bi bi-chevron-down select-arrow"></i>
+                  </div>
+                </label>
+                <label class="custom-field">
+                  <span class="field-label">Coluna Final de Entrega</span>
+                  <div class="select-shell">
+                    <select id="endColumnName">
+                      <option value="Em Produção">Em Produção</option>
+                    </select>
+                    <i class="bi bi-chevron-down select-arrow"></i>
+                  </div>
+                </label>
+                <label class="custom-field">
+                  <span class="field-label">Campo Inicial (se modo = campo de data)</span>
+                  <div class="select-shell">
+                    <select id="startFieldId">
+                      <option value="customfield_10000">customfield_10000</option>
+                    </select>
+                    <i class="bi bi-chevron-down select-arrow"></i>
+                  </div>
+                </label>
+              </article>
+
+              <!-- EFICIÊNCIA DE FLUXO -->
+              <article class="panel settings-card">
+                <div class="settings-card-header">
+                  <i class="bi bi-diagram-3 settings-icon"></i>
+                  <div>
+                    <h2>Eficiência de Fluxo</h2>
+                    <p class="section-copy">Classificação de etapas com agregação de valor vs tempo de espera.</p>
+                  </div>
+                </div>
+
+                <label class="custom-field">
+                  <span class="field-label">Etapas Ativas (Trabalho Real)</span>
+                  <textarea id="flowActiveStatuses" rows="4" placeholder="Em Desenvolvimento&#10;Em Testes&#10;Em Deploy para Produção"></textarea>
+                </label>
+                <label class="custom-field">
+                  <span class="field-label">Etapas Inativas (Fila / Espera)</span>
+                  <textarea id="flowInactiveStatuses" rows="4" placeholder="Pronto para Desenvolvimento&#10;Pronto para Testes"></textarea>
+                </label>
+                <p class="section-copy tip-text">
+                  <i class="bi bi-lightbulb"></i> Informe uma etapa por linha para que o sistema calcule a proporção de valor agregado no fluxo.
+                </p>
+              </article>
+
+              <!-- TEMA & AGENDAMENTO -->
+              <article class="panel settings-card">
+                <div class="settings-card-header">
+                  <i class="bi bi-palette settings-icon"></i>
+                  <div>
+                    <h2>Interface & Atualização</h2>
+                    <p class="section-copy">Preferências visuais e frequência de sincronização.</p>
+                  </div>
+                </div>
+
+                <label class="custom-field">
+                  <span class="field-label">Tema Visual</span>
+                  <div class="select-shell">
+                    <select id="themeSelect">
+                      <option value="current">Tema Claro (Clean Slate)</option>
+                      <option value="dark">Tema Escuro (Deep Obsidian)</option>
+                    </select>
+                    <i class="bi bi-chevron-down select-arrow"></i>
+                  </div>
+                </label>
+
+                <label class="custom-field">
+                  <span class="field-label">Frequência de Auto-Atualização</span>
+                  <div class="select-shell">
+                    <select id="refreshInterval">
+                      <option value="manual">Apenas manual (ao clique)</option>
+                      <option value="15m">A cada 15 minutos</option>
+                      <option value="1h">A cada 1 hora</option>
+                      <option value="24h">A cada 24 horas</option>
+                    </select>
+                    <i class="bi bi-chevron-down select-arrow"></i>
+                  </div>
+                </label>
+
+                <div class="settings-saved-note">
+                  <i class="bi bi-check-circle-fill text-success"></i>
+                  <span>As configurações são salvas instantaneamente no seu navegador.</span>
+                </div>
+              </article>
+            </section>
           </section>
         </div>
-
-        <section class="view-panel is-active" data-view-panel="dashboard">
-          <section class="hero">
-            <div>
-              <p class="eyebrow">Observabilidade de fluxo</p>
-              <h2 id="heroTitle">Painel de fluxo inspirado em operacoes Kanban</h2>
-              <p class="hero-copy" id="heroCopy">
-                Monitore previsibilidade, cadencia, envelhecimento do WIP e distribuicao por etapa com um unico painel consolidado.
-              </p>
-            </div>
-            <div class="hero-actions">
-              <button id="exportButton" class="secondary" type="button">Exportar imagem</button>
-              <div class="hero-badge" id="connectionStatus">Aguardando consulta</div>
-            </div>
-          </section>
-
-          <section class="dashboard-toolbar">
-            <div class="panel">
-              <div class="panel-title-row">
-                <h2>Filtros</h2>
-                <button id="resetButton" class="link-button" type="button">Reiniciar</button>
-              </div>
-              <div class="compact-grid">
-                <label>
-                  Fonte
-                  <select id="source">
-                    <option value="mock">Mock</option>
-                    <option value="jira">Jira</option>
-                  </select>
-                </label>
-                <label>
-                  De
-                  <input id="startDate" type="date" value="2026-01-01" />
-                </label>
-                <label>
-                  Ate
-                  <input id="endDate" type="date" value="2026-09-01" />
-                </label>
-              </div>
-            </div>
-
-            <div class="panel">
-              <h2>Recortes</h2>
-              <div class="compact-grid">
-                <label>
-                  Tipo
-                  <select id="issueType">
-                    <option value="">Todos</option>
-                  </select>
-                </label>
-                <label>
-                  Squad
-                  <select id="squad">
-                    <option value="">Todos</option>
-                  </select>
-                </label>
-                <label>
-                  Responsavel
-                  <select id="assignee">
-                    <option value="">Todos</option>
-                  </select>
-                </label>
-                <label>
-                  Prioridade
-                  <select id="priority">
-                    <option value="">Todos</option>
-                  </select>
-                </label>
-              </div>
-            </div>
-            <div class="actions toolbar-actions">
-              <button id="refreshButton" class="primary" type="button">Atualizar painel</button>
-            </div>
-          </section>
-
-          <section class="stats-grid dashboard-stats">
-            <article class="stat-card">
-              <span>Concluidos</span>
-              <strong id="completedCount">-</strong>
-              <small>itens entregues</small>
-            </article>
-            <article class="stat-card">
-              <span>Em andamento (WIP)</span>
-              <strong id="wipCount">-</strong>
-              <small>itens ativos</small>
-            </article>
-            <article class="stat-card">
-              <span>Total</span>
-              <strong id="totalCount">-</strong>
-              <small id="summaryPeriodLabel">periodo analisado</small>
-            </article>
-            <article class="stat-card stat-card-dark">
-              <span>Lead Time P50</span>
-              <strong id="leadTimeP50">-</strong>
-              <small>50% de confianca</small>
-            </article>
-            <article class="stat-card stat-card-dark">
-              <span>Lead Time P85</span>
-              <strong id="leadTimeP85">-</strong>
-              <small>85% de confianca</small>
-            </article>
-            <article class="stat-card stat-card-dark">
-              <span>Lead Time P95</span>
-              <strong id="leadTimeP95">-</strong>
-              <small>95% de confianca</small>
-            </article>
-            <article class="stat-card stat-card-dark">
-              <span>Eficiencia de Fluxo</span>
-              <strong id="flowEfficiency">-</strong>
-              <small id="flowEfficiencyDetail">tempo ativo x espera</small>
-            </article>
-          </section>
-
-          <section class="insights-section">
-            <div class="section-header">
-              <div>
-                <p class="eyebrow">Insights de gestao de fluxo</p>
-                <h3>Leituras automaticas do painel</h3>
-              </div>
-            </div>
-            <div id="insightsGrid" class="insights-grid"></div>
-          </section>
-
-          <section class="dashboard-grid">
-            <article class="card" data-chart-card="scatter">
-              <div class="card-header">
-                <div>
-                  <h3>Lead Time Scatterplot</h3>
-                  <p class="section-copy">Distribuicao do lead time por item concluido.</p>
-                </div>
-                <button class="secondary chart-maximize-button" data-maximize-chart="scatter" type="button" aria-label="Maximizar grafico" title="Maximizar grafico">
-                  <span aria-hidden="true">&#x26F6;</span>
-                </button>
-              </div>
-              <div id="scatterChart" class="chart-area"></div>
-              <p class="card-footnote" id="scatterFootnote"></p>
-            </article>
-
-            <article class="card" data-chart-card="leadTimeTrend">
-              <div class="card-header">
-                <div>
-                  <h3>Lead Time Comparativo</h3>
-                  <p class="section-copy" id="leadTimeTrendDescription">Comparativo do lead time medio de entrega mes a mes.</p>
-                </div>
-                <div class="chart-card-actions">
-                  <label class="chart-select">
-                    <span>Periodo</span>
-                    <select id="leadTimePeriod">
-                      <option value="month">Mes</option>
-                      <option value="week">Semana</option>
-                    </select>
-                  </label>
-                  <button class="secondary chart-maximize-button" data-maximize-chart="leadTimeTrend" type="button" aria-label="Maximizar grafico" title="Maximizar grafico">
-                    <span aria-hidden="true">&#x26F6;</span>
-                  </button>
-                </div>
-              </div>
-              <div id="leadTimeTrendChart" class="chart-area"></div>
-              <p class="card-footnote" id="leadTimeTrendFootnote"></p>
-            </article>
-          </section>
-
-          <section class="dashboard-grid">
-            <article class="card" data-chart-card="throughput">
-              <div class="card-header">
-                <div>
-                  <h3>Throughput Run Chart</h3>
-                  <p class="section-copy" id="runChartDescription">Itens concluidos por semana.</p>
-                </div>
-                <div class="chart-card-actions">
-                  <label class="chart-select">
-                    <span>Periodo</span>
-                    <select id="throughputPeriod">
-                      <option value="week">Semana</option>
-                      <option value="month">Mes</option>
-                    </select>
-                  </label>
-                  <button class="secondary chart-maximize-button" data-maximize-chart="throughput" type="button" aria-label="Maximizar grafico" title="Maximizar grafico">
-                    <span aria-hidden="true">&#x26F6;</span>
-                  </button>
-                </div>
-              </div>
-              <div id="runChart" class="chart-area"></div>
-              <p class="card-footnote" id="runFootnote"></p>
-            </article>
-
-            <article class="card" data-chart-card="stageTime">
-              <div class="card-header">
-                <div>
-                  <h3>Tempo Medio por Etapa</h3>
-                  <p class="section-copy">Tempo medio em que as demandas permaneceram em cada etapa do fluxo.</p>
-                </div>
-                <button class="secondary chart-maximize-button" data-maximize-chart="stageTime" type="button" aria-label="Maximizar grafico" title="Maximizar grafico">
-                  <span aria-hidden="true">&#x26F6;</span>
-                </button>
-              </div>
-              <div id="stageTimeChart" class="chart-area"></div>
-              <p class="card-footnote" id="stageTimeFootnote"></p>
-            </article>
-          </section>
-
-          <section class="dashboard-grid">
-            <article class="card" data-chart-card="histogram">
-              <div class="card-header">
-                <div>
-                  <h3>Histograma Lead Time</h3>
-                  <p class="section-copy">Frequencia por faixa de lead time.</p>
-                </div>
-                <button class="secondary chart-maximize-button" data-maximize-chart="histogram" type="button" aria-label="Maximizar grafico" title="Maximizar grafico">
-                  <span aria-hidden="true">&#x26F6;</span>
-                </button>
-              </div>
-              <div id="histogramChart" class="chart-area"></div>
-              <p class="card-footnote" id="histogramFootnote"></p>
-            </article>
-            <article class="card" data-chart-card="cfd">
-              <div class="card-header">
-                <div>
-                  <h3>Cumulative Flow Diagram</h3>
-                  <p class="section-copy">Evolucao dos itens em cada etapa ao longo do tempo.</p>
-                </div>
-                <button class="secondary chart-maximize-button" data-maximize-chart="cfd" type="button" aria-label="Maximizar grafico" title="Maximizar grafico">
-                  <span aria-hidden="true">&#x26F6;</span>
-                </button>
-              </div>
-              <div id="cfdChart" class="chart-area"></div>
-              <p class="card-footnote" id="cfdFootnote"></p>
-            </article>
-          </section>
-        </section>
-
-        <section class="view-panel" data-view-panel="settings">
-          <section class="hero">
-            <div>
-              <p class="eyebrow">Configuracao do painel</p>
-              <h2>Preferencias e parametros</h2>
-              <p class="hero-copy">
-                Centralize aqui os parametros da integracao com o Jira, do calculo de lead time e do tema visual.
-              </p>
-            </div>
-          </section>
-
-          <section class="settings-grid">
-            <article class="panel">
-              <h2>Integracao Jira</h2>
-              <label>
-                Host do Jira
-                <input id="jiraHost" type="url" placeholder="https://sua-empresa.atlassian.net" />
-              </label>
-              <label>
-                Email da conta
-                <input id="jiraEmail" type="email" placeholder="voce@empresa.com" />
-              </label>
-              <label>
-                API Token
-                <div class="secret-field">
-                  <input id="jiraApiToken" type="password" placeholder="Token de API do Jira" />
-                  <button id="toggleJiraApiToken" class="secret-toggle" type="button" aria-label="Visualizar API Token por 5 segundos" title="Visualizar por 5 segundos">
-                    <span aria-hidden="true">&#128065;</span>
-                  </button>
-                </div>
-              </label>
-              <label>
-                Project Key
-                <input id="jiraProjectKey" type="text" placeholder="KAN" />
-              </label>
-              <label>
-                JQL padrao
-                <textarea id="jiraDefaultJql" rows="4" placeholder="project = KAN ORDER BY updated DESC"></textarea>
-              </label>
-            </article>
-
-            <article class="panel">
-              <h2>Lead Time</h2>
-              <label>
-                Inicio
-                <select id="startMode">
-                  <option value="boardColumn">Coluna do board</option>
-                  <option value="created">Criacao da issue</option>
-                  <option value="fieldDate">Campo de data</option>
-                </select>
-              </label>
-              <label>
-                Board ID
-                <select id="boardId">
-                  <option value="1">1</option>
-                </select>
-              </label>
-              <label>
-                Coluna inicial
-                <select id="startColumnName">
-                  <option value="Pronto para Desenvolvimento">Pronto para Desenvolvimento</option>
-                </select>
-              </label>
-              <label>
-                Coluna final
-                <select id="endColumnName">
-                  <option value="Em Produção">Em Produção</option>
-                </select>
-              </label>
-              <label>
-                Campo inicial
-                <select id="startFieldId">
-                  <option value="customfield_10000">customfield_10000</option>
-                </select>
-              </label>
-            </article>
-
-            <article class="panel">
-              <h2>Eficiencia de Fluxo</h2>
-              <label>
-                Etapas ativas
-                <textarea id="flowActiveStatuses" rows="5" placeholder="Em Desenvolvimento&#10;Em Testes&#10;Em Deploy para Produção"></textarea>
-              </label>
-              <label>
-                Etapas inativas
-                <textarea id="flowInactiveStatuses" rows="5" placeholder="Pronto para Desenvolvimento&#10;Pronto para Testes"></textarea>
-              </label>
-              <p class="section-copy">
-                Informe uma etapa por linha para classificar onde o trabalho agrega valor e onde fica em espera.
-              </p>
-            </article>
-
-            <article class="panel">
-              <h2>Tema</h2>
-              <label>
-                Tema visual
-                <select id="themeSelect">
-                  <option value="current">Tema atual</option>
-                  <option value="dark">Tema dark</option>
-                </select>
-              </label>
-              <p class="section-copy">
-                O tema e aplicado imediatamente e fica salvo no navegador para as proximas visitas.
-              </p>
-            </article>
-
-            <article class="panel">
-              <h2>Atualizacao do Painel</h2>
-              <label>
-                Nova consulta
-                <select id="refreshInterval">
-                  <option value="manual">Somente ao clique</option>
-                  <option value="15m">15 min</option>
-                  <option value="1h">1 hora</option>
-                  <option value="24h">24 horas</option>
-                </select>
-              </label>
-              <p class="section-copy">
-                Define quando o painel deve fazer uma nova consulta automaticamente na API ou no mock.
-              </p>
-            </article>
-          </section>
-        </section>
       </main>
     </div>
+
+    <!-- TOAST NOTIFICATIONS -->
+    <div id="toastContainer" class="toast-container" aria-live="polite"></div>
 
     <script type="module" src="./app.js"></script>
   </body>
