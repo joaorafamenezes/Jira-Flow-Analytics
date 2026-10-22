@@ -1,6 +1,8 @@
 # Jira Flow Analytics
 
 > Plataforma em **Node.js + TypeScript + Fastify** para extração de dados do Jira Cloud e geração de métricas de fluxo de entrega (Lead Time, Cycle Time, Throughput, Aging, etc.).
+> 
+> 📖 **Guia Passo a Passo Detalhado**: Consulte também o [GUIA_EXECUCAO_LOCAL.md](file:///c:/Projetos/Jira%20Flow%20Analytics/rules/GUIA_EXECUCAO_LOCAL.md) na pasta `rules/` para instruções completas de configuração e resolução de problemas.
 
 ---
 

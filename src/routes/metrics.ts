@@ -9,11 +9,11 @@ function getJiraConfigFromQuery(query: {
   jiraDefaultJql?: string;
 }) {
   return {
-    host: query.jiraHost,
-    email: query.jiraEmail,
-    apiToken: query.jiraApiToken,
-    projectKey: query.jiraProjectKey,
-    defaultJql: query.jiraDefaultJql
+    host: query.jiraHost?.trim() || undefined,
+    email: query.jiraEmail?.trim() || undefined,
+    apiToken: query.jiraApiToken?.trim() || undefined,
+    projectKey: query.jiraProjectKey?.trim() || undefined,
+    defaultJql: query.jiraDefaultJql?.trim() || undefined
   };
 }
 

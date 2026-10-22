@@ -234,11 +234,11 @@ export class JiraService {
 
   private resolveConfig(config?: JiraRuntimeConfig) {
     return {
-      host: config?.host ?? env.JIRA_HOST,
-      email: config?.email ?? env.JIRA_EMAIL,
-      apiToken: config?.apiToken ?? env.JIRA_API_TOKEN,
-      projectKey: config?.projectKey ?? env.JIRA_PROJECT_KEY,
-      defaultJql: config?.defaultJql ?? env.JIRA_DEFAULT_JQL
+      host: config?.host?.trim() || env.JIRA_HOST,
+      email: config?.email?.trim() || env.JIRA_EMAIL,
+      apiToken: config?.apiToken?.trim() || env.JIRA_API_TOKEN,
+      projectKey: config?.projectKey?.trim() || env.JIRA_PROJECT_KEY,
+      defaultJql: config?.defaultJql?.trim() || env.JIRA_DEFAULT_JQL
     };
   }
 }

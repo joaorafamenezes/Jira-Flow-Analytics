@@ -3,7 +3,7 @@ function getTodayInputValue() {
 }
 
 const defaultFilters = {
-  source: 'mock',
+  source: 'jira',
   startDate: '2026-01-01',
   endDate: getTodayInputValue(),
   throughputPeriod: 'week',
@@ -22,6 +22,7 @@ const THEME_STORAGE_KEY = 'jfa-theme';
 const SETTINGS_STORAGE_KEY = 'jfa-settings';
 const REFRESH_BUTTON_DEFAULT_TEXT = 'Atualizar painel';
 const defaultJiraSettings = {
+  source: 'jira',
   jiraHost: 'https://sua-empresa.atlassian.net',
   jiraEmail: '',
   jiraApiToken: '',
@@ -470,6 +471,7 @@ function loadSavedTheme() {
 
 function getJiraSettingsFormValues() {
   return {
+    source: elements.source.value,
     jiraHost: elements.jiraHost.value.trim(),
     jiraEmail: elements.jiraEmail.value.trim(),
     jiraApiToken: elements.jiraApiToken.value.trim(),
@@ -555,7 +557,15 @@ async function loadSavedJiraSettings() {
       return;
     }
 
-    applyJiraSettingsFormValues({ ...defaultJiraSettings, ...serverDefaults, ...JSON.parse(rawSettings) });
+    const parsed = JSON.parse(rawSettings);
+
+    // Se o .env foi atualizado no servidor com um novo token, sincroniza automaticamente
+    if (serverDefaults.jiraApiToken && serverDefaults.jiraApiToken !== parsed.jiraApiToken) {
+      parsed.jiraApiToken = serverDefaults.jiraApiToken;
+      localStorage.setItem(SETTINGS_STORAGE_KEY, JSON.stringify(parsed));
+    }
+
+    applyJiraSettingsFormValues({ ...defaultJiraSettings, ...serverDefaults, ...parsed });
   } catch {
     applyJiraSettingsFormValues({ ...defaultJiraSettings, ...serverDefaults });
   }
@@ -1433,7 +1443,11 @@ elements.resetButton.addEventListener('click', () => {
 elements.exportButton.addEventListener('click', () => {
   window.print();
 });
-elements.source.addEventListener('change', () => handlePotentialAutoRefresh());
+elements.source.addEventListener('change', () => {
+  saveJiraSettings();
+  handlePotentialAutoRefresh();
+  showToast(`Fonte de dados alterada para: ${elements.source.value.toUpperCase()}`, 'info');
+});
 elements.startDate.addEventListener('change', () => handlePotentialAutoRefresh());
 elements.endDate.addEventListener('change', () => handlePotentialAutoRefresh());
 elements.throughputPeriod.addEventListener('change', () => handlePotentialAutoRefresh({ reloadFilterOptions: false }));

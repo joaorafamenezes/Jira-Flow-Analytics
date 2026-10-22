@@ -193,23 +193,13 @@
               </div>
 
               <div class="filters-panel-grid">
-                <!-- GRUPO: PERÍODO E ORIGEM -->
+                <!-- GRUPO: PERÍODO DE ANÁLISE -->
                 <div class="filters-panel-group">
                   <div class="filter-group-header">
                     <i class="bi bi-calendar3"></i>
-                    <h3>Período & Origem</h3>
+                    <h3>Período de Análise</h3>
                   </div>
                   <div class="compact-grid filters-compact-grid filters-compact-grid-period">
-                    <label class="custom-field">
-                      <span class="field-label">Fonte de Dados</span>
-                      <div class="select-shell">
-                        <select id="source">
-                          <option value="mock">Simulação (Mock)</option>
-                          <option value="jira">Jira Software (API)</option>
-                        </select>
-                        <i class="bi bi-chevron-down select-arrow"></i>
-                      </div>
-                    </label>
                     <label class="custom-field date-field">
                       <span class="field-label">Data Inicial (De)</span>
                       <span class="date-input-shell">
@@ -754,6 +744,17 @@
                     <p class="section-copy">Conexão REST com a instância Cloud do Jira.</p>
                   </div>
                 </div>
+
+                <label class="custom-field">
+                  <span class="field-label">Fonte de Dados das Métricas</span>
+                  <div class="select-shell">
+                    <select id="source">
+                      <option value="jira">Jira Software (API Oficial em Tempo Real)</option>
+                      <option value="mock">Simulação / Demonstração (Mock)</option>
+                    </select>
+                    <i class="bi bi-chevron-down select-arrow"></i>
+                  </div>
+                </label>
 
                 <label class="custom-field">
                   <span class="field-label">Host do Jira</span>

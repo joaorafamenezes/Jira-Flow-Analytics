@@ -830,7 +830,7 @@ body.theme-dark .filters-panel-group {
 }
 
 .filters-compact-grid-period {
-  grid-template-columns: repeat(3, minmax(0, 1fr));
+  grid-template-columns: repeat(2, minmax(0, 1fr));
 }
 
 .custom-field {
