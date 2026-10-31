@@ -821,57 +821,38 @@ function renderScatterChart(data) {
   `;
 }
 
-function renderLeadTimeTrendChart(data) {
-  const entries = Object.entries(data.buckets ?? {}).sort(([a], [b]) => a.localeCompare(b));
+function renderPeriodBarChart(container, chart, config) {
+  const period = chart?.period === 'month' ? 'month' : 'week';
+  if (config.descriptionElement) {
+    config.descriptionElement.textContent = period === 'month'
+      ? config.monthDescription
+      : config.weekDescription;
+  }
+
+  const entries = Object.entries(chart?.buckets ?? {}).sort(([a], [b]) => a.localeCompare(b));
   if (entries.length === 0) {
-    elements.leadTimeTrendChart.innerHTML = '<p class="empty-state">Sem dados suficientes para comparar lead time no periodo selecionado.</p>';
+    container.innerHTML = `<p class="empty-state">${escapeHtml(config.emptyMessage)}</p>`;
     return;
   }
 
-  const period = data.period === 'week' ? 'week' : 'month';
-  elements.leadTimeTrendDescription.textContent = period === 'week'
-    ? 'Comparativo do lead time medio de entrega semana a semana.'
-    : 'Comparativo do lead time medio de entrega mes a mes.';
-  const max = Math.max(...entries.map(([, value]) => Number(value.averageDays ?? 0)), 1);
-  const average = entries.reduce((sum, [, value]) => sum + Number(value.averageDays ?? 0), 0) / entries.length;
-  elements.leadTimeTrendChart.innerHTML = buildBarChart(
-    entries.map(([label, value]) => [label, Number(value.averageDays ?? 0)]),
-    {
-      max,
-      average,
-      averageLabel: `Media ${average.toFixed(1)}d`,
-      valueSuffix: 'd',
-      labelFormatter: formatBucketLabel
-    }
-  );
-}
+  const numericEntries = entries.map(([label, rawValue]) => [label, config.valueExtractor(rawValue)]);
+  const max = Math.max(...numericEntries.map(([, value]) => value), 1);
+  const average = numericEntries.reduce((sum, [, value]) => sum + value, 0) / numericEntries.length;
+  const suffix = config.valueSuffix ?? '';
 
-function renderRunChart(runChart) {
-  const period = runChart.period === 'month' ? 'month' : 'week';
-  elements.runChartDescription.textContent = period === 'month'
-    ? 'Itens concluidos por mes.'
-    : 'Itens concluidos por semana.';
-  const entries = Object.entries(runChart.buckets ?? {}).sort(([a], [b]) => a.localeCompare(b));
-  if (entries.length === 0) {
-    elements.runChart.innerHTML = '<p class="empty-state">Sem dados de throughput para o periodo selecionado.</p>';
-    return;
-  }
-
-  const max = Math.max(...entries.map(([, value]) => value), 1);
-  const average = entries.reduce((sum, [, value]) => sum + value, 0) / entries.length;
-  elements.runChart.innerHTML = buildBarChart(entries, {
+  container.innerHTML = buildBarChart(numericEntries, {
     max,
     average,
-    averageLabel: `Media ${average.toFixed(1)}`,
-    valueSuffix: '',
+    averageLabel: `Media ${average.toFixed(1)}${suffix}`,
+    valueSuffix: suffix,
     labelFormatter: formatBucketLabel
   });
 }
 
-function renderFlowEfficiencyTrendChart(chart) {
-  const entries = Object.entries(chart.buckets ?? {}).sort(([a], [b]) => a.localeCompare(b));
+function renderPercentageLineChart(container, buckets, config) {
+  const entries = Object.entries(buckets ?? {}).sort(([a], [b]) => a.localeCompare(b));
   if (entries.length === 0) {
-    elements.flowEfficiencyTrendChart.innerHTML = '<p class="empty-state">Sem dados suficientes para consolidar a eficiencia de fluxo por mes.</p>';
+    container.innerHTML = `<p class="empty-state">${escapeHtml(config.emptyMessage)}</p>`;
     return;
   }
 
@@ -886,8 +867,8 @@ function renderFlowEfficiencyTrendChart(chart) {
   const path = entries.map(([, value], index) => `${index === 0 ? 'M' : 'L'} ${xAt(index)} ${yAt(Number(value))}`).join(' ');
   const average = entries.reduce((sum, [, value]) => sum + Number(value), 0) / entries.length;
 
-  elements.flowEfficiencyTrendChart.innerHTML = `
-    <svg viewBox="0 0 ${width} ${height}" class="chart-svg" aria-label="Variabilidade da eficiencia de fluxo por mes">
+  container.innerHTML = `
+    <svg viewBox="0 0 ${width} ${height}" class="chart-svg" aria-label="${escapeHtml(config.ariaLabel)}">
       ${Array.from({ length: 5 }).map((_, index) => {
         const value = Math.round((maxY / 4) * index);
         const y = yAt(value);
@@ -908,6 +889,35 @@ function renderFlowEfficiencyTrendChart(chart) {
       `).join('')}
     </svg>
   `;
+}
+
+function renderLeadTimeTrendChart(data) {
+  renderPeriodBarChart(elements.leadTimeTrendChart, { ...data, period: data.period === 'week' ? 'week' : 'month' }, {
+    descriptionElement: elements.leadTimeTrendDescription,
+    weekDescription: 'Comparativo do lead time medio de entrega semana a semana.',
+    monthDescription: 'Comparativo do lead time medio de entrega mes a mes.',
+    emptyMessage: 'Sem dados suficientes para comparar lead time no periodo selecionado.',
+    valueExtractor: (value) => Number(value?.averageDays ?? 0),
+    valueSuffix: 'd'
+  });
+}
+
+function renderRunChart(runChart) {
+  renderPeriodBarChart(elements.runChart, runChart, {
+    descriptionElement: elements.runChartDescription,
+    weekDescription: 'Itens concluidos por semana.',
+    monthDescription: 'Itens concluidos por mes.',
+    emptyMessage: 'Sem dados de throughput para o periodo selecionado.',
+    valueExtractor: (value) => Number(value ?? 0),
+    valueSuffix: ''
+  });
+}
+
+function renderFlowEfficiencyTrendChart(chart) {
+  renderPercentageLineChart(elements.flowEfficiencyTrendChart, chart?.buckets, {
+    emptyMessage: 'Sem dados suficientes para consolidar a eficiencia de fluxo por mes.',
+    ariaLabel: 'Variabilidade da eficiencia de fluxo por mes'
+  });
 }
 
 function renderBlockedRateChart(chart) {
@@ -915,70 +925,22 @@ function renderBlockedRateChart(chart) {
   elements.blockedRateDescription.textContent = period === 'month'
     ? 'Percentual de itens ativos que ficaram bloqueados por mes.'
     : 'Percentual de itens ativos que ficaram bloqueados por semana.';
-  const entries = Object.entries(chart.buckets ?? {}).sort(([a], [b]) => a.localeCompare(b));
-  if (entries.length === 0) {
-    elements.blockedRateChart.innerHTML = '<p class="empty-state">Sem dados de bloqueio para o periodo selecionado.</p>';
-    return;
-  }
 
-  const width = 760;
-  const height = 320;
-  const padding = { top: 24, right: 24, bottom: 48, left: 52 };
-  const plotWidth = width - padding.left - padding.right;
-  const plotHeight = height - padding.top - padding.bottom;
-  const maxY = Math.max(...entries.map(([, value]) => Number(value)), 100);
-  const xAt = (index) => padding.left + ((plotWidth / Math.max(entries.length - 1, 1)) * index);
-  const yAt = (value) => padding.top + plotHeight - ((value / maxY) * plotHeight);
-  const path = entries.map(([, value], index) => `${index === 0 ? 'M' : 'L'} ${xAt(index)} ${yAt(Number(value))}`).join(' ');
-  const average = entries.reduce((sum, [, value]) => sum + Number(value), 0) / entries.length;
-
-  elements.blockedRateChart.innerHTML = `
-    <svg viewBox="0 0 ${width} ${height}" class="chart-svg" aria-label="Percentual de itens bloqueados por periodo">
-      ${Array.from({ length: 5 }).map((_, index) => {
-        const value = Math.round((maxY / 4) * index);
-        const y = yAt(value);
-        return `
-          <line x1="${padding.left}" y1="${y}" x2="${width - padding.right}" y2="${y}" class="grid-line"></line>
-          <text x="${padding.left - 10}" y="${y + 4}" class="axis-text axis-left">${value}%</text>
-        `;
-      }).join('')}
-      <line x1="${padding.left}" y1="${yAt(average)}" x2="${width - padding.right}" y2="${yAt(average)}" stroke="rgba(211, 90, 49, 0.56)" stroke-dasharray="6 4" stroke-width="2"></line>
-      <text x="${width - padding.right}" y="${yAt(average) - 8}" class="axis-text axis-bottom">Media ${average.toFixed(1)}%</text>
-      <path d="${path}" fill="none" stroke="var(--accent)" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"></path>
-      ${entries.map(([label, value], index) => `
-        <text x="${xAt(index)}" y="${yAt(Number(value)) - 14}" class="axis-text axis-bottom">${Number(value).toFixed(1)}%</text>
-        <circle cx="${xAt(index)}" cy="${yAt(Number(value))}" r="5" class="scatter-point">
-          <title>${escapeHtml(`${formatBucketLabel(label)}: ${Number(value).toFixed(1)}%`)}</title>
-        </circle>
-        <text x="${xAt(index)}" y="${height - 12}" class="axis-text axis-bottom">${escapeHtml(formatBucketLabel(label))}</text>
-      `).join('')}
-    </svg>
-  `;
+  renderPercentageLineChart(elements.blockedRateChart, chart?.buckets, {
+    emptyMessage: 'Sem dados de bloqueio para o periodo selecionado.',
+    ariaLabel: 'Percentual de itens bloqueados por periodo'
+  });
 }
 
 function renderBlockedTimeChart(chart) {
-  const period = chart.period === 'month' ? 'month' : 'week';
-  elements.blockedTimeDescription.textContent = period === 'month'
-    ? 'Media de dias bloqueados por item ativo em cada mes.'
-    : 'Media de dias bloqueados por item ativo em cada semana.';
-  const entries = Object.entries(chart.buckets ?? {}).sort(([a], [b]) => a.localeCompare(b));
-  if (entries.length === 0) {
-    elements.blockedTimeChart.innerHTML = '<p class="empty-state">Sem dados suficientes para calcular tempo bloqueado.</p>';
-    return;
-  }
-
-  const max = Math.max(...entries.map(([, value]) => Number(value)), 1);
-  const average = entries.reduce((sum, [, value]) => sum + Number(value), 0) / entries.length;
-  elements.blockedTimeChart.innerHTML = buildBarChart(
-    entries.map(([label, value]) => [label, Number(value)]),
-    {
-      max,
-      average,
-      averageLabel: `Media ${average.toFixed(1)}d`,
-      valueSuffix: 'd',
-      labelFormatter: formatBucketLabel
-    }
-  );
+  renderPeriodBarChart(elements.blockedTimeChart, chart, {
+    descriptionElement: elements.blockedTimeDescription,
+    weekDescription: 'Media de dias bloqueados por item ativo em cada semana.',
+    monthDescription: 'Media de dias bloqueados por item ativo em cada mes.',
+    emptyMessage: 'Sem dados suficientes para calcular tempo bloqueado.',
+    valueExtractor: (value) => Number(value ?? 0),
+    valueSuffix: 'd'
+  });
 }
 
 function renderHistogramChart(bins, percentiles = {}) {
@@ -1135,82 +1097,6 @@ function renderStageTimeChart(data = {}) {
   `;
 }
 
-function renderCfdChart(data = {}) {
-  const series = data.series ?? [];
-  if (series.length === 0) {
-    elements.cfdChart.innerHTML = '<p class="empty-state">Sem dados suficientes para o CFD.</p>';
-    return;
-  }
-
-  const statuses = ['Done', 'Em Deploy para Produção', 'Em Testes', 'Pronto para Testes', 'Em Desenvolvimento', 'Pronto para Desenvolvimento'];
-  const colors = {
-    Done: 'rgba(16, 185, 129, 0.78)',
-    'Em Deploy para Produção': 'rgba(6, 182, 212, 0.78)',
-    'Em Testes': 'rgba(139, 92, 246, 0.78)',
-    'Pronto para Testes': 'rgba(99, 102, 241, 0.75)',
-    'Em Desenvolvimento': 'rgba(59, 130, 246, 0.75)',
-    'Pronto para Desenvolvimento': 'rgba(245, 158, 11, 0.75)'
-  };
-  const width = 760;
-  const height = 320;
-  const padding = { top: 16, right: 20, bottom: 44, left: 42 };
-  const plotWidth = width - padding.left - padding.right;
-  const plotHeight = height - padding.top - padding.bottom;
-
-  const cumulative = series.map((point) => {
-    let running = 0;
-    const counts = {};
-    statuses.forEach((status) => {
-      running += point.counts[status] ?? 0;
-      counts[status] = running;
-    });
-    return {
-      bucket: point.bucket,
-      counts
-    };
-  });
-
-  const max = Math.max(...cumulative.map((point) => Math.max(...statuses.map((status) => point.counts[status] ?? 0))), 1);
-  const xAt = (index) => padding.left + ((plotWidth / Math.max(cumulative.length - 1, 1)) * index);
-  const yAt = (value) => padding.top + plotHeight - ((value / max) * plotHeight);
-
-  const layers = statuses.map((status, statusIndex) => {
-    const lowerStatus = statuses[statusIndex - 1];
-    const topPoints = cumulative.map((point, index) => `${xAt(index)},${yAt(point.counts[status] ?? 0)}`).join(' ');
-    const bottomPoints = [...cumulative].reverse().map((point, reverseIndex) => {
-      const originalIndex = cumulative.length - 1 - reverseIndex;
-      const value = lowerStatus ? (point.counts[lowerStatus] ?? 0) : 0;
-      return `${xAt(originalIndex)},${yAt(value)}`;
-    }).join(' ');
-    return `<polygon points="${topPoints} ${bottomPoints}" fill="${colors[status]}" stroke="none"></polygon>`;
-  }).reverse().join('');
-
-  elements.cfdChart.innerHTML = `
-    <svg viewBox="0 0 ${width} ${height}" class="chart-svg" aria-label="Cumulative flow diagram">
-      ${Array.from({ length: 5 }).map((_, index) => {
-        const value = (max / 4) * index;
-        const y = yAt(value);
-        return `
-          <line x1="${padding.left}" y1="${y}" x2="${width - padding.right}" y2="${y}" class="grid-line"></line>
-          <text x="${padding.left - 10}" y="${y + 4}" class="axis-text axis-left">${Math.round(value)}</text>
-        `;
-      }).join('')}
-      ${layers}
-      ${cumulative.filter((_, index) => index % Math.ceil(cumulative.length / 6) === 0 || index === cumulative.length - 1).map((point) => {
-        const index = cumulative.indexOf(point);
-        return `<text x="${xAt(index)}" y="${height - 12}" class="axis-text axis-bottom">${escapeHtml(formatBucketLabel(point.bucket))}</text>`;
-      }).join('')}
-    </svg>
-    <div class="cfd-legend">
-      ${statuses.map((status) => `<span><i style="background:${colors[status]}"></i>${escapeHtml(status)}</span>`).join('')}
-    </div>
-  `;
-
-  if (activeModalReportId === 'cfd') {
-    renderChartModalControls('cfd');
-  }
-}
-
 function renderDynamicCfdChart(data = {}) {
   const series = data.series ?? (Array.isArray(data) ? data : []);
   if (series.length === 0) {
@@ -1218,7 +1104,7 @@ function renderDynamicCfdChart(data = {}) {
     return;
   }
 
-  const fallbackStatuses = ['Done', 'Em Deploy para ProduÃ§Ã£o', 'Em Testes', 'Pronto para Testes', 'Em Desenvolvimento', 'Pronto para Desenvolvimento'];
+  const fallbackStatuses = ['Done', 'Em Deploy para Produção', 'Em Testes', 'Pronto para Testes', 'Em Desenvolvimento', 'Pronto para Desenvolvimento'];
   const availableStatuses = data.statuses?.length ? data.statuses : fallbackStatuses;
   syncCfdVisibleStatuses({ statuses: availableStatuses });
   const statuses = availableStatuses.filter((status) => cfdVisibleStatuses.includes(status));
@@ -1307,7 +1193,7 @@ function renderFootnotes(dashboard) {
   elements.flowEfficiencyTrendFootnote.textContent = 'Observe a oscilacao mensal para entender se o fluxo esta ganhando ou perdendo fluidez ao longo do periodo.';
   elements.blockedRateFootnote.textContent = 'Quanto menor esse percentual, menor a friccao externa ou interna sofrida pelo fluxo entregue.';
   elements.blockedTimeFootnote.textContent = 'Esse indicador ajuda a separar atraso por execucao de atraso causado por impedimentos.';
-  elements.stageTimeFootnote.textContent = 'Etapas com maior tempo medio tendem a indicar espera, gargalo ou politicas pouco explicitas no fluxo.';
+  elements.stageTimeFootnote.textContent = 'Etapas com maior tempo medio tendem a indicar espera, gargalo ou politicas pouco explicitas no fluxo. Product Backlog e Em Producao ficam fora do tempo de espera.';
   elements.histogramFootnote.textContent = 'Uma distribuicao estreita indica fluxo mais previsivel e menos dependente de excecoes.';
   elements.cfdFootnote.textContent = 'Faixas que alargam revelam acumulacao de WIP. Faixas que estreitam sinalizam escoamento.';
 }

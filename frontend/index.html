@@ -602,7 +602,7 @@
                         <i class="bi bi-hourglass-split chart-icon"></i>
                         <h3>Tempo Médio por Etapa</h3>
                       </div>
-                      <p class="section-copy">Permanência média das demandas em cada coluna ou status do fluxo.</p>
+                      <p class="section-copy">Permanência média das demandas em cada etapa do fluxo, a partir da saída do Product Backlog.</p>
                     </div>
                     <button class="chart-maximize-button icon-btn" data-maximize-chart="stageTime" type="button" aria-label="Maximizar gráfico" title="Expandir visualização">
                       <i class="bi bi-arrows-angle-expand"></i>
@@ -848,7 +848,7 @@
                   <i class="bi bi-diagram-3 settings-icon"></i>
                   <div>
                     <h2>Eficiência de Fluxo</h2>
-                    <p class="section-copy">Classificação de etapas com agregação de valor vs tempo de espera.</p>
+                    <p class="section-copy">Classificação de etapas com agregação de valor vs tempo de espera. Product Backlog e Em Produção ficam fora deste cálculo.</p>
                   </div>
                 </div>
 
@@ -861,7 +861,7 @@
                   <textarea id="flowInactiveStatuses" rows="4" placeholder="Pronto para Desenvolvimento&#10;Pronto para Testes"></textarea>
                 </label>
                 <p class="section-copy tip-text">
-                  <i class="bi bi-lightbulb"></i> Informe uma etapa por linha para que o sistema calcule a proporção de valor agregado no fluxo.
+                  <i class="bi bi-lightbulb"></i> Informe uma etapa por linha. O tempo de espera começa quando a demanda sai do Product Backlog; Product Backlog e Em Produção não entram na eficiência de fluxo.
                 </p>
               </article>
 
